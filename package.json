@@ -1,7 +1,7 @@
 {
   "type": "module",
   "scripts": {
-    "build": "node esbuild.config.js",
+    "build": "node esbuild.config.js && find dist/ -type f | sed 's/dist\\//https:\\/\\/sheeptester.github.io\\/doufu\\//' > dist/sitemap.txt",
     "dev": "node esbuild.config.js --serve"
   },
   "devDependencies": {
