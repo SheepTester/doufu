@@ -1,0 +1,8 @@
+node_modules/
+dist/
+static/client/
+static/server/
+static/index.css
+static/index.css.map
+static/index.js
+static/index.js.map

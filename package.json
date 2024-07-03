@@ -1,0 +1,14 @@
+{
+  "type": "module",
+  "scripts": {
+    "build": "node esbuild.config.js",
+    "dev": "node esbuild.config.js --serve"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.9",
+    "esbuild": "^0.23.0"
+  },
+  "dependencies": {
+    "wgpu-matrix": "^3.0.1"
+  }
+}
