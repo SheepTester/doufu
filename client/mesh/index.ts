@@ -34,6 +34,9 @@ function generateChunk (position: Vector3): void {
 for (let x = -1; x <= 1; x++) {
   for (let z = -1; z <= 1; z++) {
     generateChunk({ x, y: 0, z })
+    if (x !== 0 || z !== 0) {
+      world.register(new ChunkMesh({ x, y: 1, z }))
+    }
   }
 }
 
@@ -62,10 +65,14 @@ testChunk.set({ x: 10, y: 4, z: 7 }, Block.WHITE)
 world.register(testChunk)
 
 for (const chunk of world.chunks()) {
+  const data = chunk.generateMesh()
+  if (data.length === 0) {
+    continue
+  }
   const message: MeshWorkerMessage = {
     type: 'mesh',
     position: chunk.position,
-    data: chunk.generateMesh()
+    data
   }
   self.postMessage(message)
 }

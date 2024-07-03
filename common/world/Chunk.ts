@@ -32,15 +32,19 @@ export class Chunk {
   /**
    * Gets the block at the given chunk-local coordinates. For blocks outside the
    * chunk, the method will recursively search through adjacent chunks to find
-   * it.
+   * it. If a chunk doesn't exist yet, this will return `null`.
    */
-  getWithNeighbor ({ x, y, z }: Vector3): Block {
+  getWithNeighbor ({ x, y, z }: Vector3): Block | null {
     const { coord: blockX, chunk: chunkX } = clampCoord(x)
     const { coord: blockY, chunk: chunkY } = clampCoord(y)
     const { coord: blockZ, chunk: chunkZ } = clampCoord(z)
-    const index = (blockX * SIZE + blockY) * SIZE + blockZ
-    const chunk = this.neighbors[(chunkX * 3 + chunkY) * 3 + chunkZ]
-    return chunk ? chunk.#data[index] : Block.AIR
+    return (
+      this.neighbors[(chunkX * 3 + chunkY) * 3 + chunkZ]?.get({
+        x: blockX,
+        y: blockY,
+        z: blockZ
+      }) ?? null
+    )
   }
 
   /** Make the chunk consist entirely of `block` */

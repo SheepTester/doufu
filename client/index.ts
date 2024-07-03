@@ -6,6 +6,7 @@ import { Group } from './render/Group'
 import { Uniform } from './render/Uniform'
 import { handleError } from './debug/error'
 import { Context } from './render/Context'
+import { Camera } from './control/Camera'
 
 console.log(new Worker('./server/index.js'))
 
@@ -37,6 +38,9 @@ new ResizeObserver(([{ contentBoxSize }]) => {
     paint()
   }
 }).observe(canvas)
+
+const camera = new Camera()
+camera.attach(canvas)
 
 const meshWorker = new Worker('./client/mesh/index.js')
 meshWorker.addEventListener('message', e => {
@@ -79,7 +83,9 @@ const paint = () => {
   renderer
     .render(
       context.getCurrentTexture(),
-      mat4.translation([0, -SIZE - 1.5, -16])
+      mat4.inverse(
+        camera.transform(mat4.translation<Float32Array>([0, SIZE + 1.5, 16]))
+      )
     )
     .catch(error => {
       if (frameId !== null) {

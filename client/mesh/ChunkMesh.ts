@@ -94,7 +94,7 @@ export class ChunkMesh extends Chunk {
   }
 }
 
-function showFace (block: Block, neighbor: Block): boolean {
+function showFace (block: Block, neighbor: Block | null): boolean {
   return block !== neighbor && !isOpaque(neighbor)
 }
 

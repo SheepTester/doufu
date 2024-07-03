@@ -79,15 +79,19 @@ if (serve) {
         res.end()
         return
       }
-      request(clientServer, req, true)
-        .catch(() => request(workerServer, req, false))
-        .then(proxyRes => {
-          res.writeHead(proxyRes.statusCode ?? 500, {
-            ...proxyRes.headers,
-            ...headers
-          })
-          proxyRes.pipe(res, { end: true })
+      request(
+        req.url?.startsWith('/client/') || req.url?.startsWith('/server/')
+          ? workerServer
+          : clientServer,
+        req,
+        false
+      ).then(proxyRes => {
+        res.writeHead(proxyRes.statusCode ?? 500, {
+          ...proxyRes.headers,
+          ...headers
         })
+        proxyRes.pipe(res, { end: true })
+      })
     })
     .listen(3000, () => {
       console.log('http://localhost:3000/')
