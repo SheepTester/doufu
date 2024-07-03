@@ -11,6 +11,10 @@ const serve = args.includes('--serve')
 
 const clientContext = await esbuild.context({
   entryPoints: ['client/index.ts'],
+  loader: {
+    '.wgsl': 'text',
+    '.png': 'file'
+  },
   outdir: serve ? 'static/' : 'dist/',
   format: 'esm',
   bundle: true,

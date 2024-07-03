@@ -129,6 +129,11 @@
   dependencies:
     undici-types "~5.26.4"
 
+"@webgpu/types@^0.1.43":
+  version "0.1.43"
+  resolved "https://registry.yarnpkg.com/@webgpu/types/-/types-0.1.43.tgz#ae8f4f0ed0c2fe624a95b1cd84eea82a6f14e7ea"
+  integrity sha512-HoP+d+m+Kuq8CsE63BZ3+BYBKAemrqbHUNrCalxrUju5XW+q/094Q3oeIa+2pTraEbO8ckJmGpibzyGT4OV4YQ==
+
 esbuild@^0.23.0:
   version "0.23.0"
   resolved "https://registry.yarnpkg.com/esbuild/-/esbuild-0.23.0.tgz#de06002d48424d9fdb7eb52dbe8e95927f852599"
