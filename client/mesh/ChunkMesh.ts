@@ -114,9 +114,9 @@ function getFaceVertex (face: number, index: number): Vector3 {
       : { x: squareVertex.x, y: squareVertex.y, z: 0.0 }
   const rotated =
     face & 4 // 10x: bottom/top
-      ? { x: flipped.x, y: flipped.z, z: 1.0 - flipped.x }
+      ? { x: flipped.x, y: flipped.z, z: 1.0 - flipped.y }
       : face & 2 // 01x: left/right
-      ? { x: flipped.z, y: flipped.x, z: 1.0 - flipped.x } // 00x: back/front
+      ? { x: flipped.z, y: flipped.y, z: 1.0 - flipped.x } // 00x: back/front
       : flipped
   return rotated
 }

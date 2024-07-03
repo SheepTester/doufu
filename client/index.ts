@@ -76,12 +76,17 @@ meshWorker.addEventListener('message', e => {
 
 let frameId: number | null = null
 const paint = () => {
-  renderer.render(context.getCurrentTexture(), mat4.identity()).catch(error => {
-    if (frameId !== null) {
-      cancelAnimationFrame(frameId)
-      frameId = null
-    }
-    return Promise.reject(error)
-  })
+  renderer
+    .render(
+      context.getCurrentTexture(),
+      mat4.translation([0, -SIZE - 1.5, -16])
+    )
+    .catch(error => {
+      if (frameId !== null) {
+        cancelAnimationFrame(frameId)
+        frameId = null
+      }
+      return Promise.reject(error)
+    })
   frameId = requestAnimationFrame(paint)
 }
