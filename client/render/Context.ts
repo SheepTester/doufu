@@ -159,7 +159,6 @@ export class Context {
         entryPoint: 'fragment_main',
         targets: [{ format }]
       },
-      primitive: { cullMode: 'back' },
       depthStencil: {
         depthWriteEnabled: true,
         depthCompare: 'less',
@@ -172,7 +171,9 @@ export class Context {
       transform: new Uniform(device, 2, 4 * 4 * 4),
       resolution: new Uniform(device, 3, 2 * 4)
     })
-    outlineCommon.uniforms.transform.data(new Float32Array(mat4.identity()))
+    outlineCommon.uniforms.transform.data(
+      new Float32Array(mat4.translation([0, 20, 0]))
+    )
 
     const postprocessModule = await compile(
       device,
@@ -248,7 +249,7 @@ export class Context {
       }
       pass.setPipeline(this.#outlineCommon.pipeline)
       pass.setBindGroup(0, this.#outlineCommon.group)
-      pass.draw(3, 12)
+      pass.draw(6, 12)
       pass.end()
 
       this.#timestamp?.copyBuffer(encoder)

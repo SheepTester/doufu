@@ -26,8 +26,16 @@ fn vertex_main(
     let edge = edges[edge_index];
     let start = perspective * camera * transform * vec4(edge[0], 1.0);
     let end = perspective * camera * transform * vec4(edge[1], 1.0);
+    const square_vertices = array(
+        vec2(0.0, 0.0), vec2(0.0, 1.0), vec2(1.0, 1.0),
+        vec2(1.0, 1.0), vec2(1.0, 0.0), vec2(0.0, 0.0),
+    );
+    let square_vertex = square_vertices[vertex_index];
 
-    return select(start, select(end, vec4(start.x + resolution.x, start.yz, 1.0), vertex_index != 1), vertex_index != 0);
+    let edge_px = (end - start).xy * resolution;
+    let perp_px = vec4(vec2(edge_px.y, -edge_px.x) / resolution, 0.0, 0.0);
+
+    return mix(start, end, square_vertex.x) + mix(vec4(), perp_px, square_vertex.y);
 }
 
 @fragment
