@@ -196,4 +196,3 @@ for (const x of [-1, 0, 1]) {
     }
   }
 }
-console.log(neighborAffectedParts)

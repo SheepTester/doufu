@@ -5,15 +5,13 @@ import { Context } from './Context'
 import { Group } from './Group'
 import { Uniform } from './Uniform'
 
-const empty = new Uint8Array() // TEMP
-
 export class ClientChunk extends Chunk {
   #context: Context
   #chunkGroup: Group<{ transform: Uniform }>
   #vertices: GPUBuffer | null = null
 
   constructor (context: Context, position: Vector3) {
-    super(position, empty)
+    super(position)
     this.#context = context
     this.#chunkGroup = new Group(context.device, context.common.pipeline, 1, {
       transform: new Uniform(context.device, 0, 4 * 4 * 4)
