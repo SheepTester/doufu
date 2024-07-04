@@ -1,4 +1,9 @@
+import { mat4, Mat4 } from 'wgpu-matrix'
 import { Vector3 } from '../../common/Vector3'
+import { Camera } from './Camera'
+import { World } from '../../common/world/World'
+import { ClientChunk } from '../render/ClientChunk'
+import { isSolid } from '../../common/world/Block'
 
 export type PlayerOptions = {
   /** In m/s^2. */
@@ -23,8 +28,6 @@ export type PlayerOptions = {
 
   collisions: boolean
   flying: boolean
-
-  isSolid: (block: Vector3) => boolean
 }
 
 export class Player {
@@ -35,18 +38,26 @@ export class Player {
   yv = 0
   zv = 0
 
+  world: World<ClientChunk>
+  camera = new Camera()
   options: PlayerOptions
 
   #keys: Record<string, boolean> = {}
 
-  constructor ({ x, y, z, ...options }: PlayerOptions & Vector3) {
+  constructor (
+    world: World<ClientChunk>,
+    { x, y, z, ...options }: PlayerOptions & Vector3
+  ) {
+    this.world = world
     this.x = x
     this.y = y
     this.z = z
     this.options = options
   }
 
-  listen (element: Element): void {
+  listen (element: HTMLElement): void {
+    this.camera.attach(element)
+
     document.addEventListener('keydown', e => {
       if (e.target !== document && e.target !== document.body) {
         return
@@ -65,13 +76,19 @@ export class Player {
     document.addEventListener('keyup', e => {
       this.#keys[e.key.toLowerCase()] = false
     })
+    element.addEventListener('pointerdown', e => {
+      this.#keys[`mouse${e.button}`] = true
+    })
+    element.addEventListener('pointerup', e => {
+      this.#keys[`mouse${e.button}`] = false
+    })
     // Prevent sticky keys when doing ctrl+shift+tab
     window.addEventListener('blur', () => {
       this.#keys = {}
     })
   }
 
-  move (elapsed: number, yaw: number): void {
+  move (elapsed: number): void {
     const acceleration = {
       x: this.xv * this.options.frictionCoeff,
       z: this.zv * this.options.frictionCoeff
@@ -96,9 +113,13 @@ export class Player {
         this.options.moveAccel / Math.hypot(direction.x, direction.z)
       // TODO: idk why yaw needs to be inverted
       acceleration.x +=
-        factor * (Math.cos(-yaw) * direction.x - Math.sin(-yaw) * direction.z)
+        factor *
+        (Math.cos(-this.camera.yaw) * direction.x -
+          Math.sin(-this.camera.yaw) * direction.z)
       acceleration.z +=
-        factor * (Math.sin(-yaw) * direction.x + Math.cos(-yaw) * direction.z)
+        factor *
+        (Math.sin(-this.camera.yaw) * direction.x +
+          Math.cos(-this.camera.yaw) * direction.z)
     }
 
     let yAccel = this.yv
@@ -136,7 +157,7 @@ export class Player {
             );
             z++
           ) {
-            if (this.options.isSolid({ x, y, z })) {
+            if (isSolid(this.world.getBlock({ x, y, z }))) {
               this.yv = this.options.jumpVel
               break checkGround
             }
@@ -211,7 +232,7 @@ export class Player {
         for (let x = range.x.min; x <= range.x.max; x++) {
           for (let y = range.y.min; y <= range.y.max; y++) {
             for (let z = range.z.min; z <= range.z.max; z++) {
-              if (this.options.isSolid({ x, y, z })) {
+              if (isSolid(this.world.getBlock({ x, y, z }))) {
                 if (
                   (displacement > 0 && endVel > 0) ||
                   (displacement < 0 && endVel < 0)
@@ -236,5 +257,11 @@ export class Player {
     }
     this[axis] += displacement
     this[`${axis}v`] = endVel
+  }
+
+  getTransform (): Mat4 {
+    return this.camera.transform(
+      mat4.translation<Float32Array>([this.x, this.y, this.z])
+    )
   }
 }

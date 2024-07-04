@@ -1,11 +1,10 @@
-import shaderCode from './shader.wgsl'
-import postprocessCode from './postprocess.wgsl'
+import { Mat4, mat4 } from 'wgpu-matrix'
 import atlasPath from '../asset/atlas.png'
 import { Group } from './Group'
+import postprocessCode from './postprocess.wgsl'
 import { Uniform } from './Uniform'
-import { Mat4, mat4 } from 'wgpu-matrix'
-
-type TODO = any
+import voxelOutlineCode from './voxel-outline.wgsl'
+import voxelCode from './voxel.wgsl'
 
 export interface Mesh {
   render(pass: GPURenderPassEncoder): void
@@ -18,11 +17,12 @@ export type ContextOptions = {
 
 export class Context {
   device: GPUDevice
-  meshes: Mesh[] = []
+  voxelMeshes: Mesh[] = []
 
   #format: GPUTextureFormat
-  common: Group<TODO>
-  #commonPp: Group<TODO>
+  voxelCommon
+  #outlineCommon
+  #postprocessCommon
   #options: Partial<ContextOptions>
 
   #depthTexture: GPUTexture | null = null
@@ -33,14 +33,21 @@ export class Context {
   constructor (
     device: GPUDevice,
     format: GPUTextureFormat,
-    common: Group<TODO>,
-    commonPp: Group<TODO>,
+    voxelCommon: Group<{ camera: Uniform; perspective: Uniform }>,
+    outlineCommon: Group<{
+      camera: Uniform
+      perspective: Uniform
+      transform: Uniform
+      resolution: Uniform
+    }>,
+    postprocessCommon: Group<{ canvasSize: Uniform }>,
     options: Partial<ContextOptions>
   ) {
     this.device = device
     this.#format = format
-    this.common = common
-    this.#commonPp = commonPp
+    this.voxelCommon = voxelCommon
+    this.#outlineCommon = outlineCommon
+    this.#postprocessCommon = postprocessCommon
     this.#options = options
     this.#timestamp = new TimestampCollector(device)
   }
@@ -63,22 +70,13 @@ export class Context {
 
     const check = captureError(device, 'initialization')
 
-    const module = device.createShaderModule({
-      label: 'main shader',
-      code: shaderCode
-    })
-    const { messages } = await module.getCompilationInfo()
-    if (messages.some(message => message.type === 'error')) {
-      console.log(messages)
-      throw new SyntaxError('Shader failed to compile.')
-    }
-
+    const voxelModule = await compile(device, voxelCode, 'voxel shader')
     // Pipeline is like WebGL program; contains the shaders
-    const pipeline = device.createRenderPipeline({
-      label: 'main pipeline',
+    const voxelPipeline = device.createRenderPipeline({
+      label: 'voxel pipeline',
       layout: 'auto',
       vertex: {
-        module,
+        module: voxelModule,
         entryPoint: 'vertex_main',
         buffers: [
           // vertex buffer
@@ -93,7 +91,7 @@ export class Context {
       },
       // targets[0] corresponds to @location(0) in fragment_main's return value
       fragment: {
-        module,
+        module: voxelModule,
         entryPoint: 'fragment_main',
         targets: [
           {
@@ -117,26 +115,6 @@ export class Context {
       }
     })
 
-    const modulePp = device.createShaderModule({
-      label: 'post-processing shader',
-      code: postprocessCode
-    })
-    const { messages: messagesPp } = await modulePp.getCompilationInfo()
-    if (messagesPp.some(message => message.type === 'error')) {
-      console.log(messagesPp)
-      throw new SyntaxError('Post-processing shader failed to compile.')
-    }
-    const pipelinePp = device.createRenderPipeline({
-      label: 'post-processing pipeline',
-      layout: 'auto',
-      vertex: { module: modulePp, entryPoint: 'vertex_main' },
-      fragment: {
-        module: modulePp,
-        entryPoint: 'fragment_main',
-        targets: [{ format }]
-      }
-    })
-
     const source = await fetch(atlasPath)
       .then(r => r.blob())
       .then(blob => createImageBitmap(blob, { colorSpaceConversion: 'none' }))
@@ -156,25 +134,75 @@ export class Context {
     )
     const sampler = device.createSampler()
 
-    const common = new Group(device, pipeline, 0, {
+    const voxelCommon = new Group(device, voxelPipeline, 0, {
       perspective: new Uniform(device, 0, 4 * 4 * 4),
       camera: new Uniform(device, 1, 4 * 4 * 4),
       sampler: { binding: 2, resource: sampler },
       texture: { binding: 3, resource: texture.createView() },
       textureSize: new Uniform(device, 4, 4 * 2)
     })
-    common.uniforms.textureSize.data(
+    voxelCommon.uniforms.textureSize.data(
       new Float32Array([source.width / 16, source.height / 16])
     )
 
-    const commonPp = new Group(device, pipelinePp, 0, {
+    const outlineModule = await compile(
+      device,
+      voxelOutlineCode,
+      'voxel outline shader'
+    )
+    const outlinePipeline = device.createRenderPipeline({
+      label: 'voxel outline pipeline',
+      layout: 'auto',
+      vertex: { module: outlineModule, entryPoint: 'vertex_main' },
+      fragment: {
+        module: voxelModule,
+        entryPoint: 'fragment_main',
+        targets: [{ format }]
+      },
+      primitive: { cullMode: 'back' },
+      depthStencil: {
+        depthWriteEnabled: true,
+        depthCompare: 'less',
+        format: 'depth24plus'
+      }
+    })
+    const outlineCommon = new Group(device, outlinePipeline, 0, {
+      perspective: new Uniform(device, 0, 4 * 4 * 4),
+      camera: new Uniform(device, 1, 4 * 4 * 4),
+      transform: new Uniform(device, 2, 4 * 4 * 4),
+      resolution: new Uniform(device, 2, 2 * 4)
+    })
+
+    const postprocessModule = await compile(
+      device,
+      postprocessCode,
+      'post-processing shader'
+    )
+    const postprocessPipeline = device.createRenderPipeline({
+      label: 'post-processing pipeline',
+      layout: 'auto',
+      vertex: { module: postprocessModule, entryPoint: 'vertex_main' },
+      fragment: {
+        module: postprocessModule,
+        entryPoint: 'fragment_main',
+        targets: [{ format }]
+      }
+    })
+    const postprocessCommon = new Group(device, postprocessPipeline, 0, {
       canvasSize: new Uniform(device, 0, 4 * 2),
       sampler: { binding: 1, resource: sampler }
     })
 
     await check()
 
-    return new Context(device, format, common, commonPp, options)
+    return new Context(
+      device,
+      format,
+      voxelCommon,
+      outlineCommon,
+      postprocessCommon,
+      options
+    )
   }
 
   async render (canvasTexture: GPUTexture, cameraTransform: Mat4) {
@@ -184,7 +212,9 @@ export class Context {
 
     const check = captureError(this.device, 'render')
 
-    this.common.uniforms.camera.data(new Float32Array(cameraTransform))
+    const camera = new Float32Array(cameraTransform)
+    this.voxelCommon.uniforms.camera.data(camera)
+    this.#outlineCommon.uniforms.camera.data(camera)
 
     // Encodes commands
     const encoder = this.device.createCommandEncoder({
@@ -193,7 +223,7 @@ export class Context {
     {
       // You can run multiple render passes
       const pass = encoder.beginRenderPass({
-        label: 'render pass',
+        label: 'voxel render pass',
         colorAttachments: [
           {
             view: this.#screenTexture.createView(),
@@ -210,11 +240,14 @@ export class Context {
         },
         timestampWrites: this.#timestamp?.getTimestampWrites()
       })
-      pass.setPipeline(this.common.pipeline)
-      pass.setBindGroup(0, this.common.group)
-      for (const mesh of this.meshes) {
+      pass.setPipeline(this.voxelCommon.pipeline)
+      pass.setBindGroup(0, this.voxelCommon.group)
+      for (const mesh of this.voxelMeshes) {
         mesh.render(pass)
       }
+      pass.setPipeline(this.#outlineCommon.pipeline)
+      pass.setBindGroup(0, this.#outlineCommon.group)
+      pass.draw(3, 12)
       pass.end()
 
       this.#timestamp?.copyBuffer(encoder)
@@ -231,11 +264,11 @@ export class Context {
           }
         ]
       })
-      pass.setPipeline(this.#commonPp.pipeline)
-      pass.setBindGroup(0, this.#commonPp.group)
+      pass.setPipeline(this.#postprocessCommon.pipeline)
+      pass.setBindGroup(0, this.#postprocessCommon.group)
       pass.setBindGroup(
         1,
-        new Group(this.device, this.#commonPp.pipeline, 1, {
+        new Group(this.device, this.#postprocessCommon.pipeline, 1, {
           texture: { binding: 0, resource: this.#screenTexture.createView() }
         }).group
       )
@@ -254,11 +287,18 @@ export class Context {
     await check()
   }
 
-  resize (width: number, height: number): void {
-    this.common.uniforms.perspective.data(
-      new Float32Array(mat4.perspective(Math.PI / 2, width / height, 0.1, 1000))
+  resize (width: number, height: number, dpr: number): void {
+    const perspective = new Float32Array(
+      mat4.perspective(Math.PI / 2, width / height, 0.1, 1000)
     )
-    this.#commonPp.uniforms.canvasSize.data(new Float32Array([width, height]))
+    this.voxelCommon.uniforms.perspective.data(perspective)
+    this.#outlineCommon.uniforms.perspective.data(perspective)
+    this.#outlineCommon.uniforms.resolution.data(
+      new Float32Array([width / dpr, height / dpr])
+    )
+    this.#postprocessCommon.uniforms.canvasSize.data(
+      new Float32Array([width, height])
+    )
 
     this.#depthTexture?.destroy()
     this.#depthTexture = this.device.createTexture({
@@ -363,4 +403,22 @@ class TimestampCollector {
       return null
     }
   }
+}
+
+async function compile (
+  device: GPUDevice,
+  code: string,
+  label: string
+): Promise<GPUShaderModule> {
+  const module = device.createShaderModule({ label, code })
+  const { messages } = await module.getCompilationInfo()
+  if (messages.some(message => message.type === 'error')) {
+    console.log(messages)
+    throw new SyntaxError(
+      `${label} failed to compile.\n\n${messages
+        .map(message => message.message)
+        .join('\n')}`
+    )
+  }
+  return module
 }

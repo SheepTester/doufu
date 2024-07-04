@@ -13,9 +13,12 @@ export class ClientChunk extends Chunk {
   constructor (context: Context, position: Vector3) {
     super(position)
     this.#context = context
-    this.#chunkGroup = new Group(context.device, context.common.pipeline, 1, {
-      transform: new Uniform(context.device, 0, 4 * 4 * 4)
-    })
+    this.#chunkGroup = new Group(
+      context.device,
+      context.voxelCommon.pipeline,
+      1,
+      { transform: new Uniform(context.device, 0, 4 * 4 * 4) }
+    )
     this.#chunkGroup.uniforms.transform.data(
       mat4.translation<Float32Array>([
         position.x * SIZE,

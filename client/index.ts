@@ -36,34 +36,11 @@ new ResizeObserver(([{ devicePixelContentBoxSize }]) => {
   const [{ blockSize, inlineSize }] = devicePixelContentBoxSize
   canvas.width = inlineSize
   canvas.height = blockSize
-  renderer.resize(inlineSize, blockSize)
+  renderer.resize(inlineSize, blockSize, window.devicePixelRatio)
   if (frameId === null) {
     paint()
   }
 }).observe(canvas)
-
-const camera = new Camera()
-camera.attach(canvas)
-const player = new Player({
-  x: 0,
-  y: SIZE + 1.5,
-  z: 0,
-
-  moveAccel: 50,
-  gravity: -30,
-  jumpVel: 10,
-  frictionCoeff: -5,
-  collisionRadius: 0.3,
-  head: 0.2,
-  feet: 1.4,
-  wiggleRoom: 0.01,
-  collisions: true,
-
-  flying: false,
-
-  isSolid: block => isSolid(world.getBlock(block))
-})
-player.listen(canvas)
 
 const server = new Connection<ServerMessage, ClientMessage>(message => {
   switch (message.type) {
@@ -109,6 +86,25 @@ function ensureSubscribed (positions: Vector3[]) {
   }
 }
 
+const player = new Player(world, {
+  x: 0,
+  y: SIZE + 1.5,
+  z: 0,
+
+  moveAccel: 50,
+  gravity: -30,
+  jumpVel: 10,
+  frictionCoeff: -5,
+  collisionRadius: 0.3,
+  head: 0.2,
+  feet: 1.4,
+  wiggleRoom: 0.01,
+  collisions: true,
+
+  flying: false
+})
+player.listen(canvas)
+
 const meshWorker = new Connection<MeshWorkerMessage, MeshWorkerRequest>(
   message => {
     switch (message.type) {
@@ -118,7 +114,7 @@ const meshWorker = new Connection<MeshWorkerMessage, MeshWorkerRequest>(
         // can discard the face data
         if (chunk) {
           chunk.handleFaces(message.data)
-          renderer.meshes = world.chunks()
+          renderer.voxelMeshes = world.chunks()
         }
         break
       }
@@ -157,7 +153,7 @@ const paint = () => {
   const elapsed = Math.min(now - lastTime, 100) / 1000
   lastTime = now
 
-  player.move(elapsed, camera.yaw)
+  player.move(elapsed)
 
   ensureSubscribed(
     Array.from({ length: RANGE * 2 + 1 }, (_, i) =>
@@ -187,14 +183,7 @@ const paint = () => {
   )
 
   renderer
-    .render(
-      context.getCurrentTexture(),
-      mat4.inverse(
-        camera.transform(
-          mat4.translation<Float32Array>([player.x, player.y, player.z])
-        )
-      )
-    )
+    .render(context.getCurrentTexture(), mat4.inverse(player.getTransform()))
     .catch(error => {
       if (frameId !== null) {
         cancelAnimationFrame(frameId)
