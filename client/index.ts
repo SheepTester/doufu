@@ -7,8 +7,8 @@ import { Uniform } from './render/Uniform'
 import { handleError } from './debug/error'
 import { Context } from './render/Context'
 import { Camera } from './control/Camera'
-
-console.log(new Worker('./server/index.js'))
+import { Connection } from './net/Connection'
+import { ClientMessage, ServerMessage } from '../common/message'
 
 if (!navigator.gpu) {
   throw new TypeError('Your browser does not support WebGPU.')
@@ -42,9 +42,13 @@ new ResizeObserver(([{ contentBoxSize }]) => {
 const camera = new Camera()
 camera.attach(canvas)
 
-const meshWorker = new Worker('./client/mesh/index.js')
-meshWorker.addEventListener('message', e => {
-  const message: MeshWorkerMessage = e.data
+const server = new Connection<ServerMessage, ClientMessage>(message => {
+  console.log(message)
+  server.send({ type: 'ping' })
+})
+server.connectWorker('./server/worker.js')
+
+const meshWorker = new Connection<MeshWorkerMessage>(message => {
   switch (message.type) {
     case 'mesh': {
       const vertices = renderer.device.createBuffer({
@@ -77,6 +81,7 @@ meshWorker.addEventListener('message', e => {
     }
   }
 })
+meshWorker.connectWorker('./client/mesh/index.js')
 
 let frameId: number | null = null
 const paint = () => {
