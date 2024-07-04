@@ -1,6 +1,6 @@
 import { Vector3 } from '../../common/Vector3'
 import { Block, getTexture, isOpaque } from '../../common/world/Block'
-import { Chunk, SIZE } from '../../common/world/Chunk'
+import { Chunk, neighborIndex, SIZE } from '../../common/world/Chunk'
 
 const enum FaceDirection {
   BACK = 0,
@@ -45,10 +45,11 @@ export class ChunkMesh extends Chunk {
         continue
       }
       entry.faces = []
-      const xBounds = cacheBounds[i % 3]
+      const xBounds = cacheBounds[Math.floor(i / 9) % 3]
       const yBounds = cacheBounds[Math.floor(i / 3) % 3]
-      const zBounds = cacheBounds[Math.floor(i / 9) % 3]
-      const getNeighbor = i === 4 ? this.get : this.getWithNeighbor
+      const zBounds = cacheBounds[i % 3]
+      const getNeighbor =
+        i === neighborIndex(0, 0, 0) ? this.get : this.getWithNeighbor
       for (let x = xBounds.min; x < xBounds.max; x++) {
         for (let y = yBounds.min; y < yBounds.max; y++) {
           for (let z = zBounds.min; z < zBounds.max; z++) {
@@ -146,3 +147,53 @@ function getFaceVertex (face: number, index: number): Vector3 {
       : flipped
   return rotated
 }
+
+/**
+ * Maps chunk neighbor index to the corresponding cache indices of the neighbor
+ * that would need to be marked dirty if the chunk changed.
+ */
+export const neighborAffectedParts: number[][] = Array.from(
+  { length: 27 },
+  () => []
+)
+for (const x of [-1, 0, 1]) {
+  for (const y of [-1, 0, 1]) {
+    for (const z of [-1, 0, 1]) {
+      const i = neighborIndex(x, y, z)
+      switch (Math.abs(x) + Math.abs(y) + Math.abs(z)) {
+        // Middle
+        case 0: {
+          continue
+        }
+        // Face
+        case 1: {
+          for (const a of [-1, 0, -1]) {
+            for (const b of [-1, 0, -1]) {
+              if (x) {
+                neighborAffectedParts[i].push(neighborIndex(-x, a, b))
+              } else if (y) {
+                neighborAffectedParts[i].push(neighborIndex(a, -y, b))
+              } else {
+                neighborAffectedParts[i].push(neighborIndex(a, b, -z))
+              }
+            }
+          }
+        }
+        // Edge
+        case 2: {
+          for (const a of [-1, 0, -1]) {
+            neighborAffectedParts[i].push(
+              neighborIndex(-x || a, -y || a, -z || a)
+            )
+          }
+        }
+        // Vertex
+        case 3: {
+          neighborAffectedParts[i].push(neighborIndex(-x, -y, -z))
+          break
+        }
+      }
+    }
+  }
+}
+console.log(neighborAffectedParts)

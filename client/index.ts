@@ -2,14 +2,12 @@ import { mat4 } from 'wgpu-matrix'
 import { SIZE } from '../common/world/Chunk'
 import './index.css'
 import { MeshWorkerMessage, MeshWorkerRequest } from './mesh/message'
-import { Group } from './render/Group'
-import { Uniform } from './render/Uniform'
 import { handleError } from './debug/error'
 import { Context } from './render/Context'
 import { Camera } from './control/Camera'
 import { Connection } from './net/Connection'
 import { ClientMessage, ServerMessage } from '../common/message'
-import { toKey, Vector3, Vector3Key } from '../common/Vector3'
+import { Vector3 } from '../common/Vector3'
 import { World } from '../common/world/World'
 import { ClientChunk } from './render/ClientChunk'
 
@@ -32,8 +30,8 @@ renderer.device.addEventListener('uncapturederror', e => {
   }
 })
 context.configure({ device: renderer.device, format })
-new ResizeObserver(([{ contentBoxSize }]) => {
-  const [{ blockSize, inlineSize }] = contentBoxSize
+new ResizeObserver(([{ devicePixelContentBoxSize }]) => {
+  const [{ blockSize, inlineSize }] = devicePixelContentBoxSize
   canvas.width = inlineSize
   canvas.height = blockSize
   renderer.resize(inlineSize, blockSize)

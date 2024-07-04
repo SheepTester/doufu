@@ -12,7 +12,7 @@ export class Chunk {
   constructor (position: Vector3, data = new Uint8Array(SIZE * SIZE * SIZE)) {
     this.position = position
     this.data = data
-    this.neighbors[(1 * 3 + 1) * 3 + 1] = this
+    this.neighbors[neighborIndex(0, 0, 0)] = this
   }
 
   /**
@@ -41,7 +41,7 @@ export class Chunk {
     const { coord: blockY, chunk: chunkY } = clampCoord(y)
     const { coord: blockZ, chunk: chunkZ } = clampCoord(z)
     return (
-      this.neighbors[(chunkX * 3 + chunkY) * 3 + chunkZ]?.get({
+      this.neighbors[neighborIndex(chunkX, chunkY, chunkZ)]?.get({
         x: blockX,
         y: blockY,
         z: blockZ
@@ -61,10 +61,14 @@ export class Chunk {
 
 function clampCoord (coord: number): { coord: number; chunk: number } {
   if (coord < 0) {
-    return { coord: coord + SIZE, chunk: 0 }
+    return { coord: coord + SIZE, chunk: -1 }
   } else if (coord >= SIZE) {
-    return { coord: coord - SIZE, chunk: 2 }
+    return { coord: coord - SIZE, chunk: 1 }
   } else {
-    return { coord, chunk: 1 }
+    return { coord, chunk: 0 }
   }
+}
+
+export function neighborIndex (x: number, y: number, z: number): number {
+  return ((x + 1) * 3 + y + 1) * 3 + z + 1
 }

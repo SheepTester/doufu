@@ -8,23 +8,43 @@ import Alea from 'alea'
 
 const SEED = 'bleh'
 
-const elevationNoise = createNoise2D(Alea(SEED, 'wow'))
+const elevationNoise1 = createNoise2D(Alea(SEED, 'elevationNoise1'))
+const elevationNoise2 = createNoise2D(Alea(SEED, 'elevationNoise2'))
+const elevationNoise3 = createNoise2D(Alea(SEED, 'elevationNoise3'))
+const elevationNoise4 = createNoise2D(Alea(SEED, 'elevationNoise4'))
+const BASE_SCALE = 200
+const BASE_AMPLITUDE = 20
 
 function generateChunk (position: Vector3): Chunk {
   const chunk = new Chunk(position)
   for (let x = 0; x < SIZE; x++) {
     for (let z = 0; z < SIZE; z++) {
       const elevation =
-        elevationNoise(
-          (position.x * SIZE + x) / 50,
-          (position.z * SIZE + z) / 50
+        elevationNoise1(
+          (position.x * SIZE + x) / BASE_SCALE,
+          (position.z * SIZE + z) / BASE_SCALE
         ) *
-          10 +
-        16
+          BASE_AMPLITUDE +
+        elevationNoise2(
+          (position.x * SIZE + x) / (BASE_SCALE / 2),
+          (position.z * SIZE + z) / (BASE_SCALE / 2)
+        ) *
+          (BASE_AMPLITUDE / 2) +
+        elevationNoise3(
+          (position.x * SIZE + x) / (BASE_SCALE / 4),
+          (position.z * SIZE + z) / (BASE_SCALE / 4)
+        ) *
+          (BASE_AMPLITUDE / 4) +
+        elevationNoise4(
+          (position.x * SIZE + x) / (BASE_SCALE / 8),
+          (position.z * SIZE + z) / (BASE_SCALE / 8)
+        ) *
+          (BASE_AMPLITUDE / 8) +
+        20
       for (let y = 0; y < SIZE; y++) {
         if (y + position.y * SIZE <= elevation) {
           chunk.set({ x, y, z }, Block.STONE)
-        } else if (y + position.y * SIZE < 16) {
+        } else if (y + position.y * SIZE <= 10) {
           chunk.set({ x, y, z }, Block.GLASS)
         }
       }

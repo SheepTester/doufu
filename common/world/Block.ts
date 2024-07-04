@@ -17,7 +17,7 @@ const textures: Partial<Record<Block, number>> = {
 
 /** Whether the block can cull faces */
 export function isOpaque (block: Block | null): boolean {
-  return block === Block.STONE || block === Block.WHITE || block === null
+  return block === Block.STONE || block === Block.WHITE
 }
 
 /** Whether entities can collide with the block */

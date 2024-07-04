@@ -1,6 +1,6 @@
 import { World } from '../../common/world/World'
 import { Connection } from '../net/Connection'
-import { ChunkMesh } from './ChunkMesh'
+import { ChunkMesh, neighborAffectedParts } from './ChunkMesh'
 import { MeshWorkerMessage, MeshWorkerRequest } from './message'
 
 const world = new World<ChunkMesh>({
@@ -29,7 +29,9 @@ const connection = new Connection<MeshWorkerRequest, MeshWorkerMessage>(
           chunk.markAllDirty()
           for (const [i, neighbor] of chunk.neighbors.entries()) {
             if (neighbor instanceof ChunkMesh) {
-              neighbor.cache[26 - i].dirty = true
+              for (const j of neighborAffectedParts[i]) {
+                neighbor.cache[j].dirty = true
+              }
               dirty.add(neighbor)
             }
           }
