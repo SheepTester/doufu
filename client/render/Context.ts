@@ -155,7 +155,7 @@ export class Context {
       layout: 'auto',
       vertex: { module: outlineModule, entryPoint: 'vertex_main' },
       fragment: {
-        module: voxelModule,
+        module: outlineModule,
         entryPoint: 'fragment_main',
         targets: [{ format }]
       },
@@ -170,8 +170,9 @@ export class Context {
       perspective: new Uniform(device, 0, 4 * 4 * 4),
       camera: new Uniform(device, 1, 4 * 4 * 4),
       transform: new Uniform(device, 2, 4 * 4 * 4),
-      resolution: new Uniform(device, 2, 2 * 4)
+      resolution: new Uniform(device, 3, 2 * 4)
     })
+    outlineCommon.uniforms.transform.data(new Float32Array(mat4.identity()))
 
     const postprocessModule = await compile(
       device,

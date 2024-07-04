@@ -27,7 +27,7 @@ fn vertex_main(
     let start = perspective * camera * transform * vec4(edge[0], 1.0);
     let end = perspective * camera * transform * vec4(edge[1], 1.0);
 
-    return select(start, select(end, vec4(0.0, 0.0, 0.0, 1.0), vertex_index != 1), vertex_index != 0);
+    return select(start, select(end, vec4(start.x + resolution.x, start.yz, 1.0), vertex_index != 1), vertex_index != 0);
 }
 
 @fragment

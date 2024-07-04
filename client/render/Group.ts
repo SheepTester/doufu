@@ -16,7 +16,7 @@ export class Group<U extends Record<string, Uniform | GPUBindGroupEntry>> {
     uniforms: U
   ) {
     this.group = device.createBindGroup({
-      label: `@group(${groupId})`,
+      label: `${pipeline.label}: @group(${groupId})`,
       layout: pipeline.getBindGroupLayout(groupId),
       entries: Object.values(uniforms).map(entry =>
         entry instanceof Uniform ? entry.entry : entry
