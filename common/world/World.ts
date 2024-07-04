@@ -16,12 +16,13 @@ export class World<T extends Chunk> {
     this.options = options
   }
 
+  /**
+   * If a chunk already exists at the given position, it's overwritten.
+   */
   register (chunk: T): void {
-    const id: ChunkKey = `${chunk.position.x},${chunk.position.y},${chunk.position.z}`
-    if (this.#chunkMap[id]) {
-      throw new RangeError(`A chunk already exists at ${id}`)
-    }
-    this.#chunkMap[id] = chunk
+    this.#chunkMap[
+      `${chunk.position.x},${chunk.position.y},${chunk.position.z}`
+    ] = chunk
     for (let dx = -1; dx <= 1; dx++) {
       for (let dy = -1; dy <= 1; dy++) {
         for (let dz = -1; dz <= 1; dz++) {
@@ -43,6 +44,21 @@ export class World<T extends Chunk> {
   /** Gets a chunk by its chunk coordinates */
   lookup ({ x, y, z }: Vector3): T | null {
     return this.#chunkMap[`${x},${y},${z}`] ?? null
+  }
+
+  /**
+   * Gets a chunk by its chunk coordinates. If the chunk doesn't exist, it'll
+   * create a new chunk and register it.
+   */
+  ensure ({ x, y, z }: Vector3): T {
+    const chunk = this.#chunkMap[`${x},${y},${z}`]
+    if (chunk) {
+      return chunk
+    } else {
+      const chunk = this.options.createChunk({ x, y, z })
+      this.register(chunk)
+      return chunk
+    }
   }
 
   /**

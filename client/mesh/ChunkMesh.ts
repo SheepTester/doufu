@@ -32,57 +32,59 @@ export class ChunkMesh extends Chunk {
             continue
           }
           for (const { face, normal } of directions) {
+            const neighbor = this.getWithNeighbor({
+              x: x + normal.x,
+              y: y + normal.y,
+              z: z + normal.z
+            })
             if (
-              showFace(
-                block,
-                this.getWithNeighbor({
-                  x: x + normal.x,
-                  y: y + normal.y,
-                  z: z + normal.z
-                })
-              )
+              neighbor !== null &&
+              !isOpaque(neighbor) &&
+              block !== neighbor
             ) {
               let ao = 0
-              let i = 0
-              // For each corner (yeah the indices are confusing)
-              for (const [i, index] of [0, 1, 4, 3].entries()) {
-                const corner = getFaceVertex(face, index)
-                const opaques =
-                  +isOpaque(
-                    this.getWithNeighbor({
-                      x: x + (normal.x || (corner.x ? 1 : -1)),
-                      y: y + (normal.y || (corner.y ? 1 : -1)),
-                      z: z + (normal.z || (corner.z ? 1 : -1))
-                    })
-                  ) +
-                  (normal.x === 0
-                    ? +isOpaque(
-                        this.getWithNeighbor({
-                          x: x + (normal.x || (corner.x ? 1 : -1)),
-                          y: y + normal.y,
-                          z: z + normal.z
-                        })
-                      )
-                    : 0) +
-                  (normal.y === 0
-                    ? +isOpaque(
-                        this.getWithNeighbor({
-                          x: x + normal.x,
-                          y: y + (normal.y || (corner.y ? 1 : -1)),
-                          z: z + normal.z
-                        })
-                      )
-                    : 0) +
-                  (normal.z === 0
-                    ? +isOpaque(
-                        this.getWithNeighbor({
-                          x: x + normal.x,
-                          y: y + normal.y,
-                          z: z + (normal.z || (corner.z ? 1 : -1))
-                        })
-                      )
-                    : 0)
-                ao |= opaques << (i * 2)
+              // Only apply AO on opaque blocks
+              if (isOpaque(block)) {
+                // For each corner (yeah the indices are confusing)
+                for (const [i, index] of [0, 1, 4, 3].entries()) {
+                  const corner = getFaceVertex(face, index)
+                  const opaques =
+                    +isOpaque(
+                      this.getWithNeighbor({
+                        x: x + (normal.x || (corner.x ? 1 : -1)),
+                        y: y + (normal.y || (corner.y ? 1 : -1)),
+                        z: z + (normal.z || (corner.z ? 1 : -1))
+                      })
+                    ) +
+                    (normal.x === 0
+                      ? +isOpaque(
+                          this.getWithNeighbor({
+                            x: x + (normal.x || (corner.x ? 1 : -1)),
+                            y: y + normal.y,
+                            z: z + normal.z
+                          })
+                        )
+                      : 0) +
+                    (normal.y === 0
+                      ? +isOpaque(
+                          this.getWithNeighbor({
+                            x: x + normal.x,
+                            y: y + (normal.y || (corner.y ? 1 : -1)),
+                            z: z + normal.z
+                          })
+                        )
+                      : 0) +
+                    (normal.z === 0
+                      ? +isOpaque(
+                          this.getWithNeighbor({
+                            x: x + normal.x,
+                            y: y + normal.y,
+                            z: z + (normal.z || (corner.z ? 1 : -1))
+                          })
+                        )
+                      : 0)
+                  ao |= opaques << (i * 2)
+                }
               }
               faces.push(x, y, z, face, texture, ao, 0, 0)
             }
@@ -92,10 +94,6 @@ export class ChunkMesh extends Chunk {
     }
     return new Uint8Array(faces)
   }
-}
-
-function showFace (block: Block, neighbor: Block | null): boolean {
-  return block !== neighbor && !isOpaque(neighbor)
 }
 
 const squareVertices: { x: number; y: number }[] = [

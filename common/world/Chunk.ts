@@ -4,12 +4,13 @@ import { Block } from './Block'
 export const SIZE = 32
 
 export class Chunk {
-  #data: Uint8Array = new Uint8Array(SIZE * SIZE * SIZE)
   position: Vector3
+  data: Uint8Array
   neighbors: (Chunk | null)[] = Array.from({ length: 9 }, () => null)
 
-  constructor (position: Vector3) {
+  constructor (position: Vector3, data = new Uint8Array(SIZE * SIZE * SIZE)) {
     this.position = position
+    this.data = data
     this.neighbors[(1 * 3 + 1) * 3 + 1] = this
   }
 
@@ -18,7 +19,7 @@ export class Chunk {
    * bounds checks.
    */
   get ({ x, y, z }: Vector3): Block {
-    return this.#data[(x * SIZE + y) * SIZE + z]
+    return this.data[(x * SIZE + y) * SIZE + z]
   }
 
   /**
@@ -26,7 +27,7 @@ export class Chunk {
    * bounds checks.
    */
   set ({ x, y, z }: Vector3, block: Block): void {
-    this.#data[(x * SIZE + y) * SIZE + z] = block
+    this.data[(x * SIZE + y) * SIZE + z] = block
   }
 
   /**
@@ -49,7 +50,7 @@ export class Chunk {
 
   /** Make the chunk consist entirely of `block` */
   fill (block: Block): void {
-    this.#data.fill(block)
+    this.data.fill(block)
   }
 }
 

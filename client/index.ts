@@ -1,7 +1,7 @@
 import { mat4 } from 'wgpu-matrix'
 import { SIZE } from '../common/world/Chunk'
 import './index.css'
-import { MeshWorkerMessage } from './mesh/message'
+import { MeshWorkerMessage, MeshWorkerRequest } from './mesh/message'
 import { Group } from './render/Group'
 import { Uniform } from './render/Uniform'
 import { handleError } from './debug/error'
@@ -43,53 +43,177 @@ const camera = new Camera()
 camera.attach(canvas)
 
 const server = new Connection<ServerMessage, ClientMessage>(message => {
-  console.log(message)
-  server.send({ type: 'ping' })
-})
-server.connectWorker('./server/worker.js')
-
-const meshWorker = new Connection<MeshWorkerMessage>(message => {
   switch (message.type) {
-    case 'mesh': {
-      const vertices = renderer.device.createBuffer({
-        label: `chunk (${message.position.x}, ${message.position.y}, ${message.position.z}) vertex buffer vertices`,
-        size: message.data.byteLength,
-        usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
-      })
-      renderer.device.queue.writeBuffer(vertices, 0, message.data)
-      const chunkGroup = new Group(
-        renderer.device,
-        renderer.common.pipeline,
-        1,
-        { transform: new Uniform(renderer.device, 0, 4 * 4 * 4) }
+    case 'pong': {
+      server.send({ type: 'ping' })
+      break
+    }
+    case 'chunk-data': {
+      meshWorker.send(
+        { type: 'chunk-data', chunks: message.chunks },
+        message.chunks.map(chunk => chunk.data.buffer)
       )
-      chunkGroup.uniforms.transform.data(
-        mat4.translation<Float32Array>([
-          message.position.x * SIZE,
-          message.position.y * SIZE,
-          message.position.z * SIZE
-        ])
-      )
-      renderer.meshes.push({
-        render: pass => {
-          pass.setBindGroup(1, chunkGroup.group)
-          pass.setVertexBuffer(0, vertices)
-          pass.draw(6, vertices.size / 8)
-        }
-      })
       break
     }
   }
 })
+server.connectWorker('./server/worker.js')
+server.send({
+  type: 'subscribe-chunks',
+  chunks: Array.from({ length: 3 }, (_, i) =>
+    Array.from({ length: 3 }, (_, j) =>
+      Array.from({ length: 3 }, (_, k) => ({ x: i - 1, y: j - 1, z: k - 1 }))
+    )
+  ).flat(3)
+})
+
+const meshWorker = new Connection<MeshWorkerMessage, MeshWorkerRequest>(
+  message => {
+    switch (message.type) {
+      case 'mesh': {
+        const vertices = renderer.device.createBuffer({
+          label: `chunk (${message.position.x}, ${message.position.y}, ${message.position.z}) vertex buffer vertices`,
+          size: message.data.byteLength,
+          usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
+        })
+        renderer.device.queue.writeBuffer(vertices, 0, message.data)
+        const chunkGroup = new Group(
+          renderer.device,
+          renderer.common.pipeline,
+          1,
+          { transform: new Uniform(renderer.device, 0, 4 * 4 * 4) }
+        )
+        chunkGroup.uniforms.transform.data(
+          mat4.translation<Float32Array>([
+            message.position.x * SIZE,
+            message.position.y * SIZE,
+            message.position.z * SIZE
+          ])
+        )
+        renderer.meshes.push({
+          render: pass => {
+            pass.setBindGroup(1, chunkGroup.group)
+            pass.setVertexBuffer(0, vertices)
+            pass.draw(6, vertices.size / 8)
+          }
+        })
+        break
+      }
+    }
+  }
+)
 meshWorker.connectWorker('./client/mesh/index.js')
 
+let keys: Record<string, boolean> = {}
+document.addEventListener('keydown', e => {
+  if (e.target !== document && e.target !== document.body) {
+    return
+  }
+  keys[e.key.toLowerCase()] = true
+  if (document.pointerLockElement === canvas) {
+    e.preventDefault()
+  }
+})
+document.addEventListener('keyup', e => {
+  keys[e.key.toLowerCase()] = false
+})
+// Prevent sticky keys when doing ctrl+shift+tab
+window.addEventListener('blur', () => {
+  keys = {}
+})
+
+/** In m/s^2. */
+const MOVE_ACCEL = 50
+/** In 1/s. F = kv. */
+const FRICTION_COEFF = -5
+/** In m. */
+const player = {
+  x: 0,
+  xv: 0,
+  y: SIZE + 1.5,
+  yv: 0,
+  z: 16,
+  zv: 0
+}
+
+function moveAxis<Axis extends 'x' | 'y' | 'z'> (
+  axis: Axis,
+  acceleration: number,
+  time: number,
+  userMoving: boolean
+): void {
+  let endVel = player[`${axis}v`] + acceleration * time
+  if (!userMoving && Math.sign(player[`${axis}v`]) !== Math.sign(endVel)) {
+    // Friction has set velocity to 0
+    endVel = 0
+  }
+  // displacement = average speed * time
+  const avgSpeed = (player[`${axis}v`] + endVel) / 2
+  let displacement = avgSpeed * time
+  player[axis] += displacement
+  player[`${axis}v`] = endVel
+}
+
+let lastTime = Date.now()
 let frameId: number | null = null
 const paint = () => {
+  const now = Date.now()
+  const elapsed = Math.min(now - lastTime, 100) / 1000
+  lastTime = now
+
+  // Move against direction of velocity
+  const velocity = { x: player.xv, z: player.zv }
+  const acceleration = {
+    x: velocity.x * FRICTION_COEFF,
+    z: velocity.z * FRICTION_COEFF
+  }
+
+  const direction = { x: 0, z: 0 }
+  if (keys.a || keys.arrowleft) {
+    direction.x -= 1
+  }
+  if (keys.d || keys.arrowright) {
+    direction.x += 1
+  }
+  if (keys.w || keys.arrowup) {
+    direction.z -= 1
+  }
+  if (keys.s || keys.arrowdown) {
+    direction.z += 1
+  }
+  const moving = direction.x !== 0 || direction.z !== 0
+  if (moving) {
+    const factor = MOVE_ACCEL / Math.hypot(direction.x, direction.z)
+    // TODO: idk why yaw needs to be inverted
+    acceleration.x +=
+      factor *
+      (Math.cos(-camera.yaw) * direction.x -
+        Math.sin(-camera.yaw) * direction.z)
+    acceleration.z +=
+      factor *
+      (Math.sin(-camera.yaw) * direction.x +
+        Math.cos(-camera.yaw) * direction.z)
+  }
+  let yAccel = player.yv
+  yAccel *= FRICTION_COEFF
+  if (keys[' ']) {
+    yAccel += MOVE_ACCEL
+  }
+  if (keys.shift) {
+    yAccel -= MOVE_ACCEL
+  }
+
+  moveAxis('x', acceleration.x, elapsed, moving)
+  moveAxis('z', acceleration.z, elapsed, moving)
+  moveAxis('y', yAccel, elapsed, keys[' '] || keys.shift)
+
   renderer
     .render(
       context.getCurrentTexture(),
       mat4.inverse(
-        camera.transform(mat4.translation<Float32Array>([0, SIZE + 1.5, 16]))
+        camera.transform(
+          mat4.translation<Float32Array>([player.x, player.y, player.z])
+        )
       )
     )
     .catch(error => {

@@ -188,12 +188,12 @@ export class Context {
 
     // Encodes commands
     const encoder = this.device.createCommandEncoder({
-      label: 'Xx encoder xX '
+      label: 'encoder'
     })
     {
       // You can run multiple render passes
       const pass = encoder.beginRenderPass({
-        label: 'Xx render pass xX',
+        label: 'render pass',
         colorAttachments: [
           {
             view: this.#screenTexture.createView(),
