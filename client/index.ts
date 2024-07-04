@@ -9,6 +9,7 @@ import { Context } from './render/Context'
 import { Camera } from './control/Camera'
 import { Connection } from './net/Connection'
 import { ClientMessage, ServerMessage } from '../common/message'
+import { toKey, Vector3, Vector3Key } from '../common/Vector3'
 
 if (!navigator.gpu) {
   throw new TypeError('Your browser does not support WebGPU.')
@@ -55,17 +56,28 @@ const server = new Connection<ServerMessage, ClientMessage>(message => {
       )
       break
     }
+    default: {
+      console.error('Unknown server message type', message)
+    }
   }
 })
 server.connectWorker('./server/worker.js')
-server.send({
-  type: 'subscribe-chunks',
-  chunks: Array.from({ length: 3 }, (_, i) =>
-    Array.from({ length: 3 }, (_, j) =>
-      Array.from({ length: 3 }, (_, k) => ({ x: i - 1, y: j - 1, z: k - 1 }))
-    )
-  ).flat(3)
-})
+
+const subscribed = new Set<Vector3Key>()
+/**
+ * Subscribes to chunks at the given positions. If a chunk is already
+ * subscribed, it does nothing.
+ */
+function ensureSubscribed (positions: Vector3[]) {
+  positions = positions.filter(position => !subscribed.has(toKey(position)))
+  if (positions.length === 0) {
+    return
+  }
+  server.send({ type: 'subscribe-chunks', chunks: positions })
+  for (const position of positions) {
+    subscribed.add(toKey(position))
+  }
+}
 
 const meshWorker = new Connection<MeshWorkerMessage, MeshWorkerRequest>(
   message => {
@@ -98,6 +110,9 @@ const meshWorker = new Connection<MeshWorkerMessage, MeshWorkerRequest>(
           }
         })
         break
+      }
+      default: {
+        console.error('Unknown mesh builder response type', message)
       }
     }
   }
@@ -206,6 +221,18 @@ const paint = () => {
   moveAxis('x', acceleration.x, elapsed, moving)
   moveAxis('z', acceleration.z, elapsed, moving)
   moveAxis('y', yAccel, elapsed, keys[' '] || keys.shift)
+
+  ensureSubscribed(
+    Array.from({ length: 3 }, (_, i) =>
+      Array.from({ length: 3 }, (_, j) =>
+        Array.from({ length: 3 }, (_, k) => ({
+          x: Math.floor(player.x / SIZE) + i - 1,
+          y: Math.floor(player.y / SIZE) + j - 1,
+          z: Math.floor(player.z / SIZE) + k - 1
+        }))
+      )
+    ).flat(3)
+  )
 
   renderer
     .render(

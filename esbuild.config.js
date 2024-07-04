@@ -22,7 +22,11 @@ const clientContext = await esbuild.context({
   minify: !serve
 })
 const workerContext = await esbuild.context({
-  entryPoints: ['client/mesh/index.ts', 'server/worker.ts'],
+  entryPoints: [
+    'client/mesh/index.ts',
+    'server/worker.ts',
+    'server/generate/index.ts'
+  ],
   outdir: serve ? 'static/' : 'dist/',
   format: 'iife',
   bundle: true,

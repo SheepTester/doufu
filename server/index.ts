@@ -1,3 +1,4 @@
+import { Connection as WorkerConnection } from '../client/net/Connection'
 import {
   ClientMessage,
   SerializedChunk,
@@ -7,6 +8,10 @@ import { Vector3 } from '../common/Vector3'
 import { Block } from '../common/world/Block'
 import { Chunk, SIZE } from '../common/world/Chunk'
 import { World } from '../common/world/World'
+import {
+  WorldGeneratorMessage,
+  WorldGeneratorRequest
+} from './generate/message'
 import { ServerChunk } from './world/ServerChunk'
 
 export interface Connection {
@@ -19,64 +24,26 @@ export class Server {
     createChunk: position => new ServerChunk(position)
   })
 
+  #generator = new WorkerConnection<
+    WorldGeneratorMessage,
+    WorldGeneratorRequest
+  >(message => {
+    switch (message.type) {
+      case 'chunk-data': {
+        const chunk = this.world.ensure(message.chunk.position)
+        chunk.data = message.chunk.data
+        chunk.generationState = 'generated'
+        chunk.broadcastUpdate()
+        break
+      }
+      default: {
+        console.error('Unknown world generator response type', message)
+      }
+    }
+  })
+
   constructor () {
-    for (let x = -1; x <= 1; x++) {
-      for (let z = -1; z <= 1; z++) {
-        this.#generateChunk({ x, y: 0, z })
-        if (x !== 0 || z !== 0) {
-          this.world.register(new ServerChunk({ x, y: 1, z }))
-        }
-      }
-    }
-
-    const testChunk = new ServerChunk({ x: 0, y: 1, z: 0 })
-    // Lone block (no AO)
-    testChunk.set({ x: 1, y: 3, z: 6 }, Block.WHITE)
-    // Corners touching (AO level 1)
-    testChunk.set({ x: 1, y: 3, z: 3 }, Block.WHITE)
-    testChunk.set({ x: 2, y: 4, z: 2 }, Block.WHITE)
-    // Sides touching (AO level 1)
-    testChunk.set({ x: 5, y: 3, z: 3 }, Block.WHITE)
-    testChunk.set({ x: 5, y: 4, z: 2 }, Block.WHITE)
-    // Side + corner touching (AO level 2)
-    testChunk.set({ x: 9, y: 3, z: 3 }, Block.WHITE)
-    testChunk.set({ x: 9, y: 4, z: 2 }, Block.WHITE)
-    testChunk.set({ x: 10, y: 4, z: 2 }, Block.WHITE)
-    // Two sides, no corner (AO level 3)
-    testChunk.set({ x: 5, y: 3, z: 6 }, Block.WHITE)
-    testChunk.set({ x: 5, y: 4, z: 7 }, Block.WHITE)
-    testChunk.set({ x: 6, y: 4, z: 6 }, Block.WHITE)
-    // Two sides, corner (AO level 3)
-    testChunk.set({ x: 9, y: 3, z: 6 }, Block.WHITE)
-    testChunk.set({ x: 9, y: 4, z: 7 }, Block.WHITE)
-    testChunk.set({ x: 10, y: 4, z: 6 }, Block.WHITE)
-    testChunk.set({ x: 10, y: 4, z: 7 }, Block.WHITE)
-    this.world.register(testChunk)
-
-    // Mark all chunks so far as generated
-    for (const chunk of this.world.chunks()) {
-      chunk.generated = true
-    }
-  }
-
-  #generateChunk (position: Vector3): void {
-    const chunk = new ServerChunk(position)
-    for (let y = 0; y < SIZE; y++) {
-      for (let x = 0; x < SIZE; x++) {
-        for (let z = 0; z < SIZE; z++) {
-          // Decreasing probability as you go up
-          if (Math.random() < (SIZE - y) / SIZE) {
-            chunk.set(
-              { x, y, z },
-              (Math.floor(position.x / 2) + position.z) % 2 === 0
-                ? Block.STONE
-                : Block.GLASS
-            )
-          }
-        }
-      }
-    }
-    this.world.register(chunk)
+    this.#generator.connectWorker('./generate/index.js')
   }
 
   handleOpen (conn: Connection): void {
@@ -93,9 +60,12 @@ export class Server {
         const chunksWithData: SerializedChunk[] = []
         for (const position of message.chunks) {
           const chunk = this.world.ensure(position)
-          chunk.subscribers.push(conn)
-          if (chunk.generated) {
-            chunksWithData.push({ position, data: chunk.data })
+          chunk.subscribers.add(conn)
+          if (chunk.generationState === 'generated') {
+            chunksWithData.push(chunk.serialize())
+          } else if (chunk.generationState === 'ungenerated') {
+            chunk.generationState = 'generating'
+            this.#generator.send({ type: 'generate', position: chunk.position })
           }
         }
         if (chunksWithData.length > 0) {

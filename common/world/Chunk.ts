@@ -1,3 +1,4 @@
+import { SerializedChunk } from '../message'
 import { Vector3 } from '../Vector3'
 import { Block } from './Block'
 
@@ -51,6 +52,10 @@ export class Chunk {
   /** Make the chunk consist entirely of `block` */
   fill (block: Block): void {
     this.data.fill(block)
+  }
+
+  serialize (): SerializedChunk {
+    return { position: this.position, data: this.data }
   }
 }
 

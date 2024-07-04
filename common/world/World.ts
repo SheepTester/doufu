@@ -1,8 +1,6 @@
-import { Vector3 } from '../Vector3'
+import { Vector3Key, toKey, Vector3 } from '../Vector3'
 import { Block } from './Block'
 import { Chunk, SIZE } from './Chunk'
-
-type ChunkKey = `${number},${number},${number}`
 
 export type WorldOptions<T> = {
   createChunk: (position: Vector3) => T
@@ -10,7 +8,7 @@ export type WorldOptions<T> = {
 export class World<T extends Chunk> {
   options: WorldOptions<T>
 
-  #chunkMap: Record<ChunkKey, T> = {}
+  #chunkMap: Record<Vector3Key, T> = {}
 
   constructor (options: WorldOptions<T>) {
     this.options = options
@@ -20,9 +18,7 @@ export class World<T extends Chunk> {
    * If a chunk already exists at the given position, it's overwritten.
    */
   register (chunk: T): void {
-    this.#chunkMap[
-      `${chunk.position.x},${chunk.position.y},${chunk.position.z}`
-    ] = chunk
+    this.#chunkMap[toKey(chunk.position)] = chunk
     for (let dx = -1; dx <= 1; dx++) {
       for (let dy = -1; dy <= 1; dy++) {
         for (let dz = -1; dz <= 1; dz++) {
@@ -42,20 +38,20 @@ export class World<T extends Chunk> {
   }
 
   /** Gets a chunk by its chunk coordinates */
-  lookup ({ x, y, z }: Vector3): T | null {
-    return this.#chunkMap[`${x},${y},${z}`] ?? null
+  lookup (v: Vector3): T | null {
+    return this.#chunkMap[toKey(v)] ?? null
   }
 
   /**
    * Gets a chunk by its chunk coordinates. If the chunk doesn't exist, it'll
    * create a new chunk and register it.
    */
-  ensure ({ x, y, z }: Vector3): T {
-    const chunk = this.#chunkMap[`${x},${y},${z}`]
+  ensure (v: Vector3): T {
+    const chunk = this.#chunkMap[toKey(v)]
     if (chunk) {
       return chunk
     } else {
-      const chunk = this.options.createChunk({ x, y, z })
+      const chunk = this.options.createChunk(v)
       this.register(chunk)
       return chunk
     }
