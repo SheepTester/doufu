@@ -134,6 +134,11 @@
   resolved "https://registry.yarnpkg.com/@webgpu/types/-/types-0.1.43.tgz#ae8f4f0ed0c2fe624a95b1cd84eea82a6f14e7ea"
   integrity sha512-HoP+d+m+Kuq8CsE63BZ3+BYBKAemrqbHUNrCalxrUju5XW+q/094Q3oeIa+2pTraEbO8ckJmGpibzyGT4OV4YQ==
 
+alea@^1.0.1:
+  version "1.0.1"
+  resolved "https://registry.yarnpkg.com/alea/-/alea-1.0.1.tgz#957f60741c5ad11b13f72aa02a6b89fe96a26dc4"
+  integrity sha512-QU+wv+ziDXaMxRdsQg/aH7sVfWdhKps5YP97IIwFkHCsbDZA3k87JXoZ5/iuemf4ntytzIWeScrRpae8+lDrXA==
+
 esbuild@^0.23.0:
   version "0.23.0"
   resolved "https://registry.yarnpkg.com/esbuild/-/esbuild-0.23.0.tgz#de06002d48424d9fdb7eb52dbe8e95927f852599"
@@ -163,6 +168,11 @@ esbuild@^0.23.0:
     "@esbuild/win32-arm64" "0.23.0"
     "@esbuild/win32-ia32" "0.23.0"
     "@esbuild/win32-x64" "0.23.0"
+
+simplex-noise@^4.0.1:
+  version "4.0.1"
+  resolved "https://registry.yarnpkg.com/simplex-noise/-/simplex-noise-4.0.1.tgz#1573a4eaa46ce488bdf5f1e7ab3a1f798126781f"
+  integrity sha512-zl/+bdSqW7HJOQ0oDbxrNYaF4F5ik0i7M6YOYmEoIJNtg16NpvWaTTM1Y7oV/7T0jFljawLgYPS81Uu2rsfo1A==
 
 undici-types@~5.26.4:
   version "5.26.5"

@@ -139,6 +139,8 @@ const player = {
   zv: 0
 }
 
+const RANGE = 3
+
 function moveAxis<Axis extends 'x' | 'y' | 'z'> (
   axis: Axis,
   acceleration: number,
@@ -211,15 +213,30 @@ const paint = () => {
   moveAxis('y', yAccel, elapsed, keys[' '] || keys.shift)
 
   ensureSubscribed(
-    Array.from({ length: 3 }, (_, i) =>
-      Array.from({ length: 3 }, (_, j) =>
-        Array.from({ length: 3 }, (_, k) => ({
-          x: Math.floor(player.x / SIZE) + i - 1,
-          y: Math.floor(player.y / SIZE) + j - 1,
-          z: Math.floor(player.z / SIZE) + k - 1
+    Array.from({ length: RANGE * 2 + 1 }, (_, i) =>
+      Array.from({ length: RANGE * 2 + 1 }, (_, j) =>
+        Array.from({ length: RANGE * 2 + 1 }, (_, k) => ({
+          x: Math.floor(player.x / SIZE) + i - RANGE,
+          y: Math.floor(player.y / SIZE) + j - RANGE,
+          z: Math.floor(player.z / SIZE) + k - RANGE
         }))
       )
-    ).flat(3)
+    )
+      .flat(3)
+      // Prioritize loading closest chunks first
+      .sort(
+        (a, b) =>
+          Math.hypot(
+            a.x - player.x / SIZE,
+            a.y - player.y / SIZE,
+            a.z - player.z / SIZE
+          ) -
+          Math.hypot(
+            b.x - player.x / SIZE,
+            b.y - player.y / SIZE,
+            b.z - player.z / SIZE
+          )
+      )
   )
 
   renderer
