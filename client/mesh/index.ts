@@ -31,8 +31,8 @@ const connection = new Connection<MeshWorkerRequest, MeshWorkerMessage>(
               dirty.add(neighbor)
             }
           }
-          remeshDirtyChunks()
         }
+        remeshDirtyChunks()
         break
       }
     }
