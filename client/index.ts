@@ -10,6 +10,8 @@ import { Camera } from './control/Camera'
 import { Connection } from './net/Connection'
 import { ClientMessage, ServerMessage } from '../common/message'
 import { toKey, Vector3, Vector3Key } from '../common/Vector3'
+import { World } from '../common/world/World'
+import { ClientChunk } from './render/ClientChunk'
 
 if (!navigator.gpu) {
   throw new TypeError('Your browser does not support WebGPU.')
@@ -63,19 +65,24 @@ const server = new Connection<ServerMessage, ClientMessage>(message => {
 })
 server.connectWorker('./server/worker.js')
 
-const subscribed = new Set<Vector3Key>()
+const world = new World<ClientChunk>({
+  createChunk: position => new ClientChunk(renderer, position)
+})
+
 /**
  * Subscribes to chunks at the given positions. If a chunk is already
  * subscribed, it does nothing.
  */
 function ensureSubscribed (positions: Vector3[]) {
-  positions = positions.filter(position => !subscribed.has(toKey(position)))
-  if (positions.length === 0) {
-    return
-  }
-  server.send({ type: 'subscribe-chunks', chunks: positions })
+  const toSubscribe: Vector3[] = []
   for (const position of positions) {
-    subscribed.add(toKey(position))
+    if (!world.lookup(position)) {
+      world.register(new ClientChunk(renderer, position))
+      toSubscribe.push(position)
+    }
+  }
+  if (toSubscribe.length > 0) {
+    server.send({ type: 'subscribe-chunks', chunks: toSubscribe })
   }
 }
 
@@ -83,32 +90,13 @@ const meshWorker = new Connection<MeshWorkerMessage, MeshWorkerRequest>(
   message => {
     switch (message.type) {
       case 'mesh': {
-        const vertices = renderer.device.createBuffer({
-          label: `chunk (${message.position.x}, ${message.position.y}, ${message.position.z}) vertex buffer vertices`,
-          size: message.data.byteLength,
-          usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
-        })
-        renderer.device.queue.writeBuffer(vertices, 0, message.data)
-        const chunkGroup = new Group(
-          renderer.device,
-          renderer.common.pipeline,
-          1,
-          { transform: new Uniform(renderer.device, 0, 4 * 4 * 4) }
-        )
-        chunkGroup.uniforms.transform.data(
-          mat4.translation<Float32Array>([
-            message.position.x * SIZE,
-            message.position.y * SIZE,
-            message.position.z * SIZE
-          ])
-        )
-        renderer.meshes.push({
-          render: pass => {
-            pass.setBindGroup(1, chunkGroup.group)
-            pass.setVertexBuffer(0, vertices)
-            pass.draw(6, vertices.size / 8)
-          }
-        })
+        const chunk = world.lookup(message.position)
+        // If the chunk doesn't exist anymore, the chunk has been unloaded so we
+        // can discard the face data
+        if (chunk) {
+          chunk.handleFaces(message.data)
+          renderer.meshes = world.chunks()
+        }
         break
       }
       default: {

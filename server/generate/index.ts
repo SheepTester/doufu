@@ -6,17 +6,19 @@ import { WorldGeneratorMessage, WorldGeneratorRequest } from './message'
 
 function generateChunk (position: Vector3): Chunk {
   const chunk = new Chunk(position)
-  for (let y = 0; y < SIZE; y++) {
-    for (let x = 0; x < SIZE; x++) {
-      for (let z = 0; z < SIZE; z++) {
-        // Decreasing probability as you go up
-        if (Math.random() < (SIZE - y) / SIZE) {
-          chunk.set(
-            { x, y, z },
-            (Math.floor(position.x / 2) + position.z) % 2 === 0
-              ? Block.STONE
-              : Block.GLASS
-          )
+  if (position.y === 0) {
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        for (let z = 0; z < SIZE; z++) {
+          // Decreasing probability as you go up
+          if (Math.random() < (SIZE - y) / SIZE) {
+            chunk.set(
+              { x, y, z },
+              (Math.floor(position.x / 2) + position.z) % 2 === 0
+                ? Block.STONE
+                : Block.GLASS
+            )
+          }
         }
       }
     }
