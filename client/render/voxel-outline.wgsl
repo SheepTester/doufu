@@ -1,8 +1,9 @@
-
 @group(0) @binding(0) var<uniform> perspective: mat4x4<f32>;
 @group(0) @binding(1) var<uniform> camera: mat4x4<f32>;
 @group(0) @binding(2) var<uniform> transform: mat4x4<f32>;
 @group(0) @binding(3) var<uniform> resolution: vec2<f32>;
+
+const LINE_WIDTH = 5.0;
 
 @vertex
 fn vertex_main(
@@ -32,10 +33,10 @@ fn vertex_main(
     );
     let square_vertex = square_vertices[vertex_index];
 
-    let edge_px = (end - start).xy * resolution;
+    let edge_px = normalize((end - start).xy * resolution) * LINE_WIDTH;
     let perp_px = vec4(vec2(edge_px.y, -edge_px.x) / resolution, 0.0, 0.0);
 
-    return mix(start, end, square_vertex.x) + mix(vec4(), perp_px, square_vertex.y);
+    return mix(start, end, square_vertex.x) + mix(-perp_px, perp_px, square_vertex.y);
 }
 
 @fragment
