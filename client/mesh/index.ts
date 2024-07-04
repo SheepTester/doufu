@@ -26,8 +26,10 @@ const connection = new Connection<MeshWorkerRequest, MeshWorkerMessage>(
         for (const { position, data } of message.chunks) {
           const chunk = world.ensure(position)
           chunk.data = data
-          for (const neighbor of chunk.neighbors) {
+          chunk.markAllDirty()
+          for (const [i, neighbor] of chunk.neighbors.entries()) {
             if (neighbor instanceof ChunkMesh) {
+              neighbor.cache[26 - i].dirty = true
               dirty.add(neighbor)
             }
           }

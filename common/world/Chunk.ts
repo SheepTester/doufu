@@ -7,7 +7,7 @@ export const SIZE = 32
 export class Chunk {
   position: Vector3
   data: Uint8Array
-  neighbors: (Chunk | null)[] = Array.from({ length: 9 }, () => null)
+  neighbors: (Chunk | null)[] = Array.from({ length: 27 }, () => null)
 
   constructor (position: Vector3, data = new Uint8Array(SIZE * SIZE * SIZE)) {
     this.position = position
@@ -19,7 +19,7 @@ export class Chunk {
    * Gets the block at the given chunk-local coordinates. Does not perform any
    * bounds checks.
    */
-  get ({ x, y, z }: Vector3): Block {
+  get = ({ x, y, z }: Vector3): Block => {
     return this.data[(x * SIZE + y) * SIZE + z]
   }
 
@@ -36,7 +36,7 @@ export class Chunk {
    * chunk, the method will recursively search through adjacent chunks to find
    * it. If a chunk doesn't exist yet, this will return `null`.
    */
-  getWithNeighbor ({ x, y, z }: Vector3): Block | null {
+  getWithNeighbor = ({ x, y, z }: Vector3): Block | null => {
     const { coord: blockX, chunk: chunkX } = clampCoord(x)
     const { coord: blockY, chunk: chunkY } = clampCoord(y)
     const { coord: blockZ, chunk: chunkZ } = clampCoord(z)
