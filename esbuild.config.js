@@ -21,26 +21,31 @@ const clientContext = await esbuild.context({
   bundle: true,
   sourcemap: 'linked',
   minify: !serve,
-  define: { IS_BROWSER: 'true' },
-  external: ['worker_threads']
+  define: { IS_BROWSER: 'true', USE_WS: String(server) },
+  external: ['worker_threads', 'path']
 })
 const workerContext = await esbuild.context({
-  entryPoints: [
-    'client/mesh/index.ts',
-    'server/worker.ts',
-    'server/generate/index.ts'
-  ],
-  outdir: serve ? 'static/' : 'dist/',
+  entryPoints: server
+    ? ['client/mesh/index.ts']
+    : ['client/mesh/index.ts', 'server/worker.ts', 'server/generate/index.ts'],
+  outdir: server
+    ? serve
+      ? 'static/client/mesh'
+      : 'dist/client/mesh'
+    : serve
+    ? 'static/'
+    : 'dist/',
   format: 'iife',
   bundle: true,
   sourcemap: 'linked',
   minify: !serve,
   define: { IS_BROWSER: 'true' },
-  external: ['worker_threads']
+  external: ['worker_threads', 'path']
 })
 const serverContext = await esbuild.context({
-  entryPoints: ['server/server.ts'],
-  outfile: 'dist/server.cjs',
+  entryPoints: ['server/server.ts', 'server/generate/index.ts'],
+  outdir: 'dist/',
+  outExtension: { '.js': '.cjs' },
   platform: 'node',
   format: 'cjs',
   bundle: true,
@@ -132,21 +137,22 @@ if (serve) {
     })
 } else {
   await clientContext.rebuild()
-  await clientContext.dispose()
   await workerContext.rebuild()
-  await workerContext.dispose()
   await fs.copyFile('static/index.html', 'dist/index.html')
   if (server) {
     await serverContext.rebuild()
+  } else {
+    await fs.writeFile(
+      'dist/sitemap.txt',
+      (await walk('dist/'))
+        .map(
+          path =>
+            path.replace('dist/', 'https://sheeptester.github.io/doufu/') + '\n'
+        )
+        .join('')
+    )
   }
+  await clientContext.dispose()
+  await workerContext.dispose()
   await serverContext.dispose()
-  await fs.writeFile(
-    'dist/sitemap.txt',
-    (await walk('dist/'))
-      .map(
-        path =>
-          path.replace('dist/', 'https://sheeptester.github.io/doufu/') + '\n'
-      )
-      .join('')
-  )
 }

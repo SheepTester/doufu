@@ -3,12 +3,14 @@ import http from 'http'
 import { WebSocketServer } from 'ws'
 import { Connection, Server } from '.'
 
-const server = new Server()
+const gameServer = new Server()
 
 const app = express()
-const wss = new WebSocketServer({ server: http.createServer(app) })
+const server = http.createServer(app)
+const wss = new WebSocketServer({ server })
 
-app.use(express.static('.'))
+console.log(__dirname)
+app.use(express.static(__dirname))
 
 wss.on('connection', ws => {
   const connection: Connection = {
@@ -16,14 +18,17 @@ wss.on('connection', ws => {
       ws.send(JSON.stringify(message))
     }
   }
-  server.handleOpen(connection)
+  gameServer.handleOpen(connection)
   ws.on('message', data => {
-    server.handleMessage(
+    gameServer.handleMessage(
       connection,
       JSON.parse(Array.isArray(data) ? data.join('') : String(data))
     )
   })
   ws.on('close', () => {
-    server.handleClose(connection)
+    gameServer.handleClose(connection)
   })
 })
+
+server.listen(10069)
+console.log('http://localhost:10069/')

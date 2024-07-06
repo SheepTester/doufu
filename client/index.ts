@@ -1,16 +1,16 @@
 import { mat4 } from 'wgpu-matrix'
 import { SIZE } from '../common/world/Chunk'
 import './index.css'
-import { MeshWorkerMessage, MeshWorkerRequest } from './mesh/message'
 import { handleError } from './debug/error'
 import { Context } from './render/Context'
 import { Connection } from './net/Connection'
 import { ClientMessage, ServerMessage } from '../common/message'
 import { Vector3 } from '../common/Vector3'
-import { World } from '../common/world/World'
 import { ClientChunk } from './render/ClientChunk'
 import { Player } from './control/Player'
 import { ClientWorld } from './render/ClientWorld'
+
+declare const USE_WS: boolean
 
 if (!navigator.gpu) {
   throw new TypeError('Your browser does not support WebGPU.')
@@ -60,7 +60,11 @@ const server = new Connection<ServerMessage, ClientMessage>(message => {
     }
   }
 })
-server.connectWorker('./server/worker.js')
+if (USE_WS) {
+  server.connect(window.location.origin.replace('http', 'ws') + '/ws')
+} else {
+  server.connectWorker('./server/worker.js')
+}
 
 const world = new ClientWorld(renderer, server)
 

@@ -1,6 +1,7 @@
 import type { Worker as NodeWorker, MessagePort } from 'worker_threads'
 
 declare const IS_BROWSER: boolean
+declare const __dirname: string
 
 const MAX_ATTEMPTS = 3
 
@@ -51,8 +52,9 @@ export class Connection<ReceiveType, SendType = never> {
       worker = path ? new Worker(path) : self
     } else {
       const { Worker, parentPort } = await import('worker_threads')
+      const { resolve } = await import('path')
       if (path) {
-        worker = new Worker(path)
+        worker = new Worker(resolve(__dirname, path.replace('.js', '.cjs')))
       } else {
         if (!parentPort) {
           throw new TypeError(
@@ -64,8 +66,8 @@ export class Connection<ReceiveType, SendType = never> {
     }
     // TypeScript hack; for some reason these cases can't merge
     if ('on' in worker) {
-      worker.on('message', e => {
-        this.handleMessage(e.data)
+      worker.on('message', data => {
+        this.handleMessage(data)
       })
     } else if (worker instanceof Worker) {
       worker.addEventListener('message', e => {
