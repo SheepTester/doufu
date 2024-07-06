@@ -1,17 +1,21 @@
 {
   "type": "module",
   "scripts": {
-    "build": "node esbuild.config.js && find dist/ -type f | sed 's/dist\\//https:\\/\\/sheeptester.github.io\\/doufu\\//' > dist/sitemap.txt",
-    "dev": "node esbuild.config.js --serve"
+    "build": "node esbuild.config.js",
+    "dev": "node esbuild.config.js serve"
   },
   "devDependencies": {
+    "@types/express": "^4.17.21",
     "@types/node": "^20.14.9",
+    "@types/ws": "^8.5.10",
     "@webgpu/types": "^0.1.43",
     "esbuild": "^0.23.0"
   },
   "dependencies": {
     "alea": "^1.0.1",
+    "express": "^4.19.2",
     "simplex-noise": "^4.0.1",
-    "wgpu-matrix": "^3.0.1"
+    "wgpu-matrix": "^3.0.1",
+    "ws": "^8.18.0"
   }
 }

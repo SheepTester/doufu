@@ -14,7 +14,6 @@ import {
 import { ServerChunk } from './world/ServerChunk'
 
 export interface Connection {
-  id: number
   send(message: ServerMessage): void
 }
 
@@ -107,7 +106,7 @@ export class Server {
     }
   }
 
-  handleClose (connId: number): void {
+  handleClose (conn: Connection): void {
     //
   }
 }

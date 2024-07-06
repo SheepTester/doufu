@@ -3,7 +3,6 @@ import { Connection, Server } from '.'
 const server = new Server()
 
 const conn: Connection = {
-  id: 0,
   send (message) {
     self.postMessage(message)
   }

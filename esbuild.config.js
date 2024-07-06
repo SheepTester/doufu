@@ -7,7 +7,8 @@ import fs from 'node:fs/promises'
 import http from 'node:http'
 
 const args = process.argv.slice(2)
-const serve = args.includes('--serve')
+const serve = args.includes('serve')
+const server = args.includes('server')
 
 const clientContext = await esbuild.context({
   entryPoints: ['client/index.ts'],
@@ -19,7 +20,9 @@ const clientContext = await esbuild.context({
   format: 'esm',
   bundle: true,
   sourcemap: 'linked',
-  minify: !serve
+  minify: !serve,
+  define: { IS_BROWSER: 'true' },
+  external: ['worker_threads']
 })
 const workerContext = await esbuild.context({
   entryPoints: [
@@ -31,7 +34,17 @@ const workerContext = await esbuild.context({
   format: 'iife',
   bundle: true,
   sourcemap: 'linked',
-  minify: !serve
+  minify: !serve,
+  define: { IS_BROWSER: 'true' },
+  external: ['worker_threads']
+})
+const serverContext = await esbuild.context({
+  entryPoints: ['server/server.ts'],
+  outfile: 'dist/server.cjs',
+  platform: 'node',
+  format: 'cjs',
+  bundle: true,
+  define: { IS_BROWSER: 'false' }
 })
 
 /**
@@ -61,6 +74,23 @@ function request ({ host, port }, req, check404) {
 
     req.pipe(proxyReq, { end: true })
   })
+}
+
+/**
+ * https://gist.github.com/kethinov/6658166
+ * @param {string} dir
+ * @param {string[]} files
+ * @returns {Promise<string[]>}
+ */
+async function walk (dir, files = []) {
+  for (const file of await fs.readdir(dir)) {
+    if ((await fs.stat(dir + file)).isDirectory()) {
+      await walk(dir + file + '/', files)
+    } else {
+      files.push(dir + file)
+    }
+  }
+  return files
 }
 
 if (serve) {
@@ -106,4 +136,17 @@ if (serve) {
   await workerContext.rebuild()
   await workerContext.dispose()
   await fs.copyFile('static/index.html', 'dist/index.html')
+  if (server) {
+    await serverContext.rebuild()
+  }
+  await serverContext.dispose()
+  await fs.writeFile(
+    'dist/sitemap.txt',
+    (await walk('dist/'))
+      .map(
+        path =>
+          path.replace('dist/', 'https://sheeptester.github.io/doufu/') + '\n'
+      )
+      .join('')
+  )
 }
