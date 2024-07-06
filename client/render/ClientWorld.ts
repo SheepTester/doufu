@@ -16,8 +16,8 @@ export class ClientWorld extends World<ClientChunk> {
   #context: Context
 
   #server: Connection<ServerMessage, ClientMessage>
-  #meshWorker = new Connection<MeshWorkerMessage, MeshWorkerRequest>(
-    message => {
+  #meshWorker = new Connection<MeshWorkerMessage, MeshWorkerRequest>({
+    onMessage: message => {
       switch (message.type) {
         case 'mesh': {
           const chunk = this.lookup(message.position)
@@ -34,7 +34,7 @@ export class ClientWorld extends World<ClientChunk> {
         }
       }
     }
-  )
+  })
 
   constructor (
     context: Context,

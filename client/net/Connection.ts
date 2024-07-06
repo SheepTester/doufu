@@ -10,24 +10,54 @@ type ConnectionState =
   | { type: 'worker'; worker: Worker | Window | NodeWorker | MessagePort }
   | null
 
+export type ConnectionOptions<ReceiveType, SendType> = {
+  onMessage: (message: ReceiveType) => void
+  /** Encode a message for WebSocket connections */
+  encode?: (
+    message: SendType
+  ) => string | ArrayBufferLike | Blob | ArrayBufferView
+  /** Decode a message from a WebSocket connection */
+  decode?: (message: ArrayBuffer) => ReceiveType
+}
+
 export class Connection<ReceiveType, SendType = never> {
-  handleMessage: (message: ReceiveType) => void
+  options: ConnectionOptions<ReceiveType, SendType>
 
   #state: ConnectionState = null
   #queue: { message: SendType; transfer: ArrayBuffer[] }[] = []
 
-  constructor (handleMessage: (message: ReceiveType) => void) {
-    this.handleMessage = handleMessage
+  constructor (options: ConnectionOptions<ReceiveType, SendType>) {
+    this.options = options
   }
 
   connect (url: string, attemptsLeft = MAX_ATTEMPTS): void {
     this.disconnect()
     const ws = new WebSocket(url)
+    ws.binaryType = 'arraybuffer'
     ws.addEventListener('open', () => {
       this.#attemptQueue()
     })
     ws.addEventListener('message', e => {
-      this.handleMessage(JSON.parse(e.data))
+      if (typeof e.data === 'string') {
+        if (this.options.decode) {
+          console.log(e.data)
+          throw new TypeError(
+            'Expected binary message, received string message'
+          )
+        }
+        this.options.onMessage(JSON.parse(e.data))
+      } else if (e.data instanceof ArrayBuffer) {
+        if (!this.options.decode) {
+          console.log(e.data)
+          throw new TypeError(
+            'Received binary message, but no decoder was given'
+          )
+        }
+        this.options.onMessage(this.options.decode(e.data))
+      } else {
+        console.log(e.data)
+        throw new TypeError(`Unknown message type ${e.data.constructor.name}`)
+      }
     })
     ws.addEventListener('error', () => {
       if (this.#state?.type === 'ws' && this.#state.ws === ws) {
@@ -67,15 +97,15 @@ export class Connection<ReceiveType, SendType = never> {
     // TypeScript hack; for some reason these cases can't merge
     if ('on' in worker) {
       worker.on('message', data => {
-        this.handleMessage(data)
+        this.options.onMessage(data)
       })
     } else if (worker instanceof Worker) {
       worker.addEventListener('message', e => {
-        this.handleMessage(e.data)
+        this.options.onMessage(e.data)
       })
     } else {
       worker.addEventListener('message', e => {
-        this.handleMessage(e.data)
+        this.options.onMessage(e.data)
       })
     }
     this.#state = { type: 'worker', worker }
@@ -111,8 +141,11 @@ export class Connection<ReceiveType, SendType = never> {
       this.#state?.type === 'ws' &&
       this.#state.ws.readyState === WebSocket.OPEN
     ) {
-      // TODO: Binary data isn't JSON-serializable this way
-      this.#state.ws.send(JSON.stringify(message))
+      if (this.options.encode) {
+        this.#state.ws.send(this.options.encode(message))
+      } else {
+        this.#state.ws.send(JSON.stringify(message))
+      }
     } else if (this.#state?.type === 'worker') {
       if ('on' in this.#state.worker) {
         this.#state.worker.postMessage(message, transfer)

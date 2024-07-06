@@ -7,10 +7,7 @@ import {
 } from '../common/message'
 import { Block } from '../common/world/Block'
 import { World } from '../common/world/World'
-import {
-  WorldGeneratorMessage,
-  WorldGeneratorRequest
-} from './generate/message'
+import { WorldGenMessage, WorldGenRequest } from './generate/message'
 import { ServerChunk } from './world/ServerChunk'
 
 export interface Connection {
@@ -22,20 +19,19 @@ export class Server {
     createChunk: position => new ServerChunk(position)
   })
 
-  #generator = new WorkerConnection<
-    WorldGeneratorMessage,
-    WorldGeneratorRequest
-  >(message => {
-    switch (message.type) {
-      case 'chunk-data': {
-        const chunk = this.world.ensure(message.chunk.position)
-        chunk.data = message.chunk.data
-        chunk.generationState = 'generated'
-        chunk.broadcastUpdate()
-        break
-      }
-      default: {
-        console.error('Unknown world generator response type', message)
+  #generator = new WorkerConnection<WorldGenMessage, WorldGenRequest>({
+    onMessage: message => {
+      switch (message.type) {
+        case 'chunk-data': {
+          const chunk = this.world.ensure(message.chunk.position)
+          chunk.data = message.chunk.data
+          chunk.generationState = 'generated'
+          chunk.broadcastUpdate()
+          break
+        }
+        default: {
+          console.error('Unknown world generator response type', message)
+        }
       }
     }
   })

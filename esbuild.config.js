@@ -10,7 +10,7 @@ const args = process.argv.slice(2)
 const serve = args.includes('serve')
 const server = args.includes('server')
 
-if (server && server) {
+if (serve && server) {
   console.error('Hot reloading the WebSocket server is coming soon!')
   process.exit(1)
 }

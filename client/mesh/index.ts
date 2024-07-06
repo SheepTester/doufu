@@ -24,8 +24,8 @@ function remeshDirtyChunks () {
   }, 0)
 }
 
-const connection = new Connection<MeshWorkerRequest, MeshWorkerMessage>(
-  message => {
+const connection = new Connection<MeshWorkerRequest, MeshWorkerMessage>({
+  onMessage: message => {
     switch (message.type) {
       case 'chunk-data': {
         for (const { position, data } of message.chunks) {
@@ -78,5 +78,5 @@ const connection = new Connection<MeshWorkerRequest, MeshWorkerMessage>(
       }
     }
   }
-)
+})
 connection.connectWorker()

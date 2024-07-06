@@ -3,7 +3,7 @@ import { Connection } from '../../client/net/Connection'
 import { Vector3 } from '../../common/Vector3'
 import { Block } from '../../common/world/Block'
 import { Chunk, SIZE } from '../../common/world/Chunk'
-import { WorldGeneratorMessage, WorldGeneratorRequest } from './message'
+import { WorldGenMessage, WorldGenRequest } from './message'
 import Alea from 'alea'
 
 const SEED = 'bleh'
@@ -53,8 +53,8 @@ function generateChunk (position: Vector3): Chunk {
   return chunk
 }
 
-const connection = new Connection<WorldGeneratorRequest, WorldGeneratorMessage>(
-  message => {
+const connection = new Connection<WorldGenRequest, WorldGenMessage>({
+  onMessage: message => {
     switch (message.type) {
       case 'generate': {
         const chunk = generateChunk(message.position).serialize()
@@ -66,5 +66,5 @@ const connection = new Connection<WorldGeneratorRequest, WorldGeneratorMessage>(
       }
     }
   }
-)
+})
 connection.connectWorker()

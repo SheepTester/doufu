@@ -4,7 +4,12 @@ import './index.css'
 import { handleError } from './debug/error'
 import { Context } from './render/Context'
 import { Connection } from './net/Connection'
-import { ClientMessage, ServerMessage } from '../common/message'
+import {
+  ClientMessage,
+  decodeServer,
+  encode,
+  ServerMessage
+} from '../common/message'
 import { Vector3 } from '../common/Vector3'
 import { ClientChunk } from './render/ClientChunk'
 import { Player } from './control/Player'
@@ -41,24 +46,28 @@ new ResizeObserver(([{ devicePixelContentBoxSize }]) => {
   }
 }).observe(canvas)
 
-const server = new Connection<ServerMessage, ClientMessage>(message => {
-  switch (message.type) {
-    case 'pong': {
-      server.send({ type: 'ping' })
-      break
+const server = new Connection<ServerMessage, ClientMessage>({
+  onMessage: message => {
+    switch (message.type) {
+      case 'pong': {
+        server.send({ type: 'ping' })
+        break
+      }
+      case 'chunk-data': {
+        world.setChunks(message.chunks)
+        break
+      }
+      case 'block-update': {
+        world.setBlocks(message.blocks, false)
+        break
+      }
+      default: {
+        console.error('Unknown server message type', message)
+      }
     }
-    case 'chunk-data': {
-      world.setChunks(message.chunks)
-      break
-    }
-    case 'block-update': {
-      world.setBlocks(message.blocks, false)
-      break
-    }
-    default: {
-      console.error('Unknown server message type', message)
-    }
-  }
+  },
+  encode,
+  decode: decodeServer
 })
 if (USE_WS) {
   server.connect(window.location.origin.replace('http', 'ws') + '/ws')
