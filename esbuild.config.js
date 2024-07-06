@@ -10,6 +10,11 @@ const args = process.argv.slice(2)
 const serve = args.includes('serve')
 const server = args.includes('server')
 
+if (server && server) {
+  console.error('Hot reloading the WebSocket server is coming soon!')
+  process.exit(1)
+}
+
 const clientContext = await esbuild.context({
   entryPoints: ['client/index.ts'],
   loader: {

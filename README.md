@@ -16,4 +16,11 @@ $ yarn build
 # Start development server
 $ yarn dev
 http://localhost:3000/
+
+# Also builds to dist/
+$ yarn build server
+
+# Starts WebSocket server
+$ node dist/server.cjs
+http://localhost:10069/
 ```

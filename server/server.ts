@@ -9,7 +9,6 @@ const app = express()
 const server = http.createServer(app)
 const wss = new WebSocketServer({ server })
 
-console.log(__dirname)
 app.use(express.static(__dirname))
 
 wss.on('connection', ws => {
