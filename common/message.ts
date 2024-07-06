@@ -1,4 +1,5 @@
 import { Vector3 } from './Vector3'
+import { Block } from './world/Block'
 
 export type ServerMessage =
   | { type: 'pong' }
@@ -13,4 +14,8 @@ export type ClientMessage =
 export type SerializedChunk = {
   position: Vector3
   data: Uint8Array
+}
+export type SerializedBlock = {
+  position: Vector3
+  block: Block
 }

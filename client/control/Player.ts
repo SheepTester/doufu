@@ -1,9 +1,8 @@
 import { mat4, Mat4 } from 'wgpu-matrix'
 import { Vector3 } from '../../common/Vector3'
 import { Camera } from './Camera'
-import { World } from '../../common/world/World'
-import { ClientChunk } from '../render/ClientChunk'
-import { isSolid } from '../../common/world/Block'
+import { Block, isSolid } from '../../common/world/Block'
+import { ClientWorld } from '../render/ClientWorld'
 
 export type PlayerOptions = {
   /** In m/s^2. */
@@ -38,14 +37,14 @@ export class Player {
   yv = 0
   zv = 0
 
-  world: World<ClientChunk>
+  world: ClientWorld
   camera = new Camera()
   options: PlayerOptions
 
   #keys: Record<string, boolean> = {}
 
   constructor (
-    world: World<ClientChunk>,
+    world: ClientWorld,
     { x, y, z, ...options }: PlayerOptions & Vector3
   ) {
     this.world = world
@@ -257,6 +256,29 @@ export class Player {
     }
     this[axis] += displacement
     this[`${axis}v`] = endVel
+  }
+
+  interact (): void {
+    const result = this.world.raycast(this, this.camera.getForward())
+    if (!result) {
+      return
+    }
+    if (this.#keys.mouse0 || this.#keys.q) {
+      this.world.setBlock(
+        result.block,
+        this.#keys.mouse2 || this.#keys.r ? Block.WHITE : Block.AIR,
+        true
+      )
+    } else if (this.#keys.mouse2 || this.#keys.r) {
+      const target = {
+        x: result.block.x + result.normal.x,
+        y: result.block.y + result.normal.y,
+        z: result.block.z + result.normal.z
+      }
+      if (this.world.getBlock(target) === Block.AIR) {
+        this.world.setBlock(target, Block.WHITE, true)
+      }
+    }
   }
 
   getTransform (): Mat4 {

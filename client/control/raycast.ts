@@ -13,71 +13,79 @@ export type RaycastResult = {
  * @link https://github.com/fenomas/fast-voxel-raycast/blob/master/index.js
  */
 export function * raycast<T> (
-  getVoxel: (x: number, y: number, z: number) => T,
+  getVoxel: (v: Vector3) => T,
   p: Vector3,
   d: Vector3,
   maxDistance = 64
 ): Generator<RaycastResult> {
   let t = 0
-  let ix = Math.floor(p.x)
-  let iy = Math.floor(p.y)
-  let iz = Math.floor(p.z)
-  const stepx = Math.sign(d.x)
-  const stepy = Math.sign(d.y)
-  const stepz = Math.sign(d.z)
+  const i = {
+    x: Math.floor(p.x),
+    y: Math.floor(p.y),
+    z: Math.floor(p.z)
+  }
+  const step = {
+    x: Math.sign(d.x),
+    y: Math.sign(d.y),
+    z: Math.sign(d.z)
+  }
   // d is already normalized
-  const txDelta = Math.abs(1 / d.x)
-  const tyDelta = Math.abs(1 / d.y)
-  const tzDelta = Math.abs(1 / d.z)
+  const tDelta = {
+    x: Math.abs(1 / d.x),
+    y: Math.abs(1 / d.y),
+    z: Math.abs(1 / d.z)
+  }
   // location of nearest voxel boundary, in units of t
-  let txMax =
-    txDelta < Infinity
-      ? txDelta * (stepx > 0 ? ix + 1 - p.x : p.x - ix)
-      : Infinity
-  let tyMax =
-    tyDelta < Infinity
-      ? tyDelta * (stepy > 0 ? iy + 1 - p.y : p.y - iy)
-      : Infinity
-  let tzMax =
-    tzDelta < Infinity
-      ? tzDelta * (stepz > 0 ? iz + 1 - p.z : p.z - iz)
-      : Infinity
+  const tMax = {
+    x:
+      tDelta.x < Infinity
+        ? tDelta.x * (step.x > 0 ? i.x + 1 - p.x : p.x - i.x)
+        : Infinity,
+    y:
+      tDelta.y < Infinity
+        ? tDelta.y * (step.y > 0 ? i.y + 1 - p.y : p.y - i.y)
+        : Infinity,
+    z:
+      tDelta.z < Infinity
+        ? tDelta.z * (step.z > 0 ? i.z + 1 - p.z : p.z - i.z)
+        : Infinity
+  }
   let steppedIndex: 'x' | 'y' | 'z' | null = null
 
   // main loop along raycast vector
   while (t <= maxDistance) {
     // exit check
-    const b = getVoxel(ix, iy, iz)
+    const b = getVoxel(i)
     if (b) {
       yield {
-        block: { x: ix, y: iy, z: iz },
+        block: i,
         position: { x: p.x + t * d.x, y: p.y + t * d.y, z: p.z + t * d.z },
         normal: {
-          x: steppedIndex === 'x' ? -stepx : 0,
-          y: steppedIndex === 'y' ? -stepy : 0,
-          z: steppedIndex === 'z' ? -stepz : 0
+          x: steppedIndex === 'x' ? -step.x : 0,
+          y: steppedIndex === 'y' ? -step.y : 0,
+          z: steppedIndex === 'z' ? -step.z : 0
         }
       }
     }
 
     // advance t to next nearest voxel boundary
-    switch (Math.min(txMax, tyMax, tzMax)) {
-      case txMax:
-        ix += stepx
-        t = txMax
-        txMax += txDelta
+    switch (Math.min(tMax.x, tMax.y, tMax.z)) {
+      case tMax.x:
+        i.x += step.x
+        t = tMax.x
+        tMax.x += tDelta.x
         steppedIndex = 'x'
         break
-      case tyMax:
-        iy += stepy
-        t = tyMax
-        tyMax += tyDelta
+      case tMax.y:
+        i.y += step.y
+        t = tMax.y
+        tMax.y += tDelta.y
         steppedIndex = 'y'
         break
-      case tzMax:
-        iz += stepz
-        t = tzMax
-        tzMax += tzDelta
+      case tMax.z:
+        i.z += step.z
+        t = tMax.z
+        tMax.z += tDelta.z
         steppedIndex = 'z'
         break
       default:

@@ -1,5 +1,6 @@
+import { raycast, RaycastResult } from '../../client/control/raycast'
 import { Vector3Key, toKey, Vector3 } from '../Vector3'
-import { Block } from './Block'
+import { Block, isSolid } from './Block'
 import { Chunk, SIZE } from './Chunk'
 
 export type WorldOptions<T> = {
@@ -76,7 +77,12 @@ export class World<T extends Chunk> {
     )
   }
 
-  setBlock ({ x, y, z }: Vector3, block: Block): void {
+  #isSolid = (block: Vector3): boolean => {
+    return isSolid(this.getBlock(block))
+  }
+
+  /** Returns the chunk that the block was set in. */
+  setBlock ({ x, y, z }: Vector3, block: Block): T {
     const chunkPos = {
       x: Math.floor(x / SIZE),
       y: Math.floor(y / SIZE),
@@ -95,9 +101,23 @@ export class World<T extends Chunk> {
       },
       block
     )
+    return chunk
   }
 
   chunks (): T[] {
     return Object.values(this.#chunkMap)
+  }
+
+  raycast (
+    from: Vector3,
+    direction: Vector3,
+    maxDistance?: number
+  ): RaycastResult | null {
+    const result = raycast(this.#isSolid, from, direction, maxDistance).next()
+    if (result.done) {
+      return null
+    } else {
+      return result.value
+    }
   }
 }

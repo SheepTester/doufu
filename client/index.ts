@@ -4,14 +4,13 @@ import './index.css'
 import { MeshWorkerMessage, MeshWorkerRequest } from './mesh/message'
 import { handleError } from './debug/error'
 import { Context } from './render/Context'
-import { Camera } from './control/Camera'
 import { Connection } from './net/Connection'
 import { ClientMessage, ServerMessage } from '../common/message'
 import { Vector3 } from '../common/Vector3'
 import { World } from '../common/world/World'
 import { ClientChunk } from './render/ClientChunk'
 import { Player } from './control/Player'
-import { isSolid } from '../common/world/Block'
+import { ClientWorld } from './render/ClientWorld'
 
 if (!navigator.gpu) {
   throw new TypeError('Your browser does not support WebGPU.')
@@ -49,13 +48,7 @@ const server = new Connection<ServerMessage, ClientMessage>(message => {
       break
     }
     case 'chunk-data': {
-      meshWorker.send({ type: 'chunk-data', chunks: message.chunks })
-      for (const { position, data } of message.chunks) {
-        const chunk = world.lookup(position)
-        if (chunk) {
-          chunk.data = data
-        }
-      }
+      world.setChunks(message.chunks)
       break
     }
     default: {
@@ -65,9 +58,7 @@ const server = new Connection<ServerMessage, ClientMessage>(message => {
 })
 server.connectWorker('./server/worker.js')
 
-const world = new World<ClientChunk>({
-  createChunk: position => new ClientChunk(renderer, position)
-})
+const world = new ClientWorld(renderer)
 
 /**
  * Subscribes to chunks at the given positions. If a chunk is already
@@ -105,27 +96,6 @@ const player = new Player(world, {
 })
 player.listen(canvas)
 
-const meshWorker = new Connection<MeshWorkerMessage, MeshWorkerRequest>(
-  message => {
-    switch (message.type) {
-      case 'mesh': {
-        const chunk = world.lookup(message.position)
-        // If the chunk doesn't exist anymore, the chunk has been unloaded so we
-        // can discard the face data
-        if (chunk) {
-          chunk.handleFaces(message.data)
-          renderer.voxelMeshes = world.chunks()
-        }
-        break
-      }
-      default: {
-        console.error('Unknown mesh builder response type', message)
-      }
-    }
-  }
-)
-meshWorker.connectWorker('./client/mesh/index.js')
-
 let keys: Record<string, boolean> = {}
 document.addEventListener('keydown', e => {
   if (e.target !== document && e.target !== document.body) {
@@ -153,6 +123,7 @@ const paint = () => {
   const elapsed = Math.min(now - lastTime, 100) / 1000
   lastTime = now
 
+  player.interact()
   player.move(elapsed)
 
   ensureSubscribed(
@@ -181,6 +152,18 @@ const paint = () => {
           )
       )
   )
+
+  const result = world.raycast(player, player.camera.getForward())
+  if (result) {
+    renderer.voxelOutlineEnabled = true
+    renderer.outlineCommon.uniforms.transform.data(
+      new Float32Array(
+        mat4.translation([result.block.x, result.block.y, result.block.z])
+      )
+    )
+  } else {
+    renderer.voxelOutlineEnabled = false
+  }
 
   renderer
     .render(context.getCurrentTexture(), mat4.inverse(player.getTransform()))

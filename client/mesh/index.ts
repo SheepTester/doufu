@@ -1,3 +1,4 @@
+import { neighborIndex } from '../../common/world/Chunk'
 import { World } from '../../common/world/World'
 import { Connection } from '../net/Connection'
 import { ChunkMesh, neighborAffectedParts } from './ChunkMesh'
@@ -9,14 +10,18 @@ const world = new World<ChunkMesh>({
 
 const dirty = new Set<ChunkMesh>()
 
+let timeoutId: number | undefined = undefined
 function remeshDirtyChunks () {
-  for (const chunk of dirty) {
-    const data = chunk.generateMesh()
-    connection.send({ type: 'mesh', position: chunk.position, data }, [
-      data.buffer
-    ])
-  }
-  dirty.clear()
+  clearTimeout(timeoutId)
+  timeoutId = setTimeout(() => {
+    for (const chunk of dirty) {
+      const data = chunk.generateMesh()
+      connection.send({ type: 'mesh', position: chunk.position, data }, [
+        data.buffer
+      ])
+    }
+    dirty.clear()
+  }, 0)
 }
 
 const connection = new Connection<MeshWorkerRequest, MeshWorkerMessage>(
@@ -35,6 +40,15 @@ const connection = new Connection<MeshWorkerRequest, MeshWorkerMessage>(
               dirty.add(neighbor)
             }
           }
+        }
+        remeshDirtyChunks()
+        break
+      }
+      case 'block-update': {
+        for (const { position, block } of message.blocks) {
+          const chunk = world.setBlock(position, block)
+          chunk.cache[neighborIndex(0, 0, 0)].dirty = true // TEMP
+          dirty.add(chunk)
         }
         remeshDirtyChunks()
         break

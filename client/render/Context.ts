@@ -21,7 +21,8 @@ export class Context {
 
   #format: GPUTextureFormat
   voxelCommon
-  #outlineCommon
+  outlineCommon
+  voxelOutlineEnabled = false
   #postprocessCommon
   #options: Partial<ContextOptions>
 
@@ -46,7 +47,7 @@ export class Context {
     this.device = device
     this.#format = format
     this.voxelCommon = voxelCommon
-    this.#outlineCommon = outlineCommon
+    this.outlineCommon = outlineCommon
     this.#postprocessCommon = postprocessCommon
     this.#options = options
     this.#timestamp = new TimestampCollector(device)
@@ -216,7 +217,7 @@ export class Context {
 
     const camera = new Float32Array(cameraTransform)
     this.voxelCommon.uniforms.camera.data(camera)
-    this.#outlineCommon.uniforms.camera.data(camera)
+    this.outlineCommon.uniforms.camera.data(camera)
 
     // Encodes commands
     const encoder = this.device.createCommandEncoder({
@@ -247,9 +248,11 @@ export class Context {
       for (const mesh of this.voxelMeshes) {
         mesh.render(pass)
       }
-      pass.setPipeline(this.#outlineCommon.pipeline)
-      pass.setBindGroup(0, this.#outlineCommon.group)
-      pass.draw(6, 12)
+      if (this.voxelOutlineEnabled) {
+        pass.setPipeline(this.outlineCommon.pipeline)
+        pass.setBindGroup(0, this.outlineCommon.group)
+        pass.draw(6, 12)
+      }
       pass.end()
 
       this.#timestamp?.copyBuffer(encoder)
@@ -294,8 +297,8 @@ export class Context {
       mat4.perspective(Math.PI / 2, width / height, 0.1, 1000)
     )
     this.voxelCommon.uniforms.perspective.data(perspective)
-    this.#outlineCommon.uniforms.perspective.data(perspective)
-    this.#outlineCommon.uniforms.resolution.data(
+    this.outlineCommon.uniforms.perspective.data(perspective)
+    this.outlineCommon.uniforms.resolution.data(
       new Float32Array([width / dpr, height / dpr])
     )
     this.#postprocessCommon.uniforms.canvasSize.data(
