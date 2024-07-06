@@ -82,7 +82,7 @@ export class World<T extends Chunk> {
   }
 
   /** Returns the chunk that the block was set in. */
-  setBlock ({ x, y, z }: Vector3, block: Block): T {
+  setBlock ({ x, y, z }: Vector3, block: Block): { chunk: T; local: Vector3 } {
     const chunkPos = {
       x: Math.floor(x / SIZE),
       y: Math.floor(y / SIZE),
@@ -93,15 +93,13 @@ export class World<T extends Chunk> {
       chunk = this.options.createChunk(chunkPos)
       this.register(chunk)
     }
-    chunk.set(
-      {
-        x: x - chunk.position.x * SIZE,
-        y: y - chunk.position.y * SIZE,
-        z: z - chunk.position.z * SIZE
-      },
-      block
-    )
-    return chunk
+    const local = {
+      x: x - chunk.position.x * SIZE,
+      y: y - chunk.position.y * SIZE,
+      z: z - chunk.position.z * SIZE
+    }
+    chunk.set(local, block)
+    return { chunk, local }
   }
 
   chunks (): T[] {

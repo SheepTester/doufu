@@ -48,7 +48,7 @@ export class ClientWorld extends World<ClientChunk> {
     }
   }
 
-  setBlock (position: Vector3, block: Block, broadcast = false): ClientChunk {
+  setBlock (position: Vector3, block: Block, broadcast = false) {
     this.#meshWorker.send({
       type: 'block-update',
       blocks: [{ position, block }]
