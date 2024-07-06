@@ -51,6 +51,10 @@ const server = new Connection<ServerMessage, ClientMessage>(message => {
       world.setChunks(message.chunks)
       break
     }
+    case 'block-update': {
+      world.setBlocks(message.blocks, false)
+      break
+    }
     default: {
       console.error('Unknown server message type', message)
     }
@@ -58,7 +62,7 @@ const server = new Connection<ServerMessage, ClientMessage>(message => {
 })
 server.connectWorker('./server/worker.js')
 
-const world = new ClientWorld(renderer)
+const world = new ClientWorld(renderer, server)
 
 /**
  * Subscribes to chunks at the given positions. If a chunk is already
@@ -123,7 +127,7 @@ const paint = () => {
   const elapsed = Math.min(now - lastTime, 100) / 1000
   lastTime = now
 
-  player.interact()
+  player.interact((RANGE + 1) * Math.SQRT2 * SIZE)
   player.move(elapsed)
 
   ensureSubscribed(

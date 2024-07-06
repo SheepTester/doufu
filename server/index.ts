@@ -1,12 +1,11 @@
 import { Connection as WorkerConnection } from '../client/net/Connection'
 import {
   ClientMessage,
+  SerializedBlock,
   SerializedChunk,
   ServerMessage
 } from '../common/message'
-import { Vector3 } from '../common/Vector3'
 import { Block } from '../common/world/Block'
-import { Chunk, SIZE } from '../common/world/Chunk'
 import { World } from '../common/world/World'
 import {
   WorldGeneratorMessage,
@@ -54,6 +53,17 @@ export class Server {
     switch (message.type) {
       case 'ping': {
         console.log('received ping')
+        let i = 0
+        setInterval(() => {
+          const block = i++ % 2 === 0 ? Block.WHITE : Block.AIR
+          const { chunk } = this.world.setBlock({ x: 1, y: 30, z: 1 }, block)
+          for (const subscriber of chunk.subscribers) {
+            subscriber.send({
+              type: 'block-update',
+              blocks: [{ position: { x: 1, y: 30, z: 1 }, block }]
+            })
+          }
+        }, 500)
         break
       }
       case 'subscribe-chunks': {
@@ -70,6 +80,27 @@ export class Server {
         }
         if (chunksWithData.length > 0) {
           conn.send({ type: 'chunk-data', chunks: chunksWithData })
+        }
+        break
+      }
+      case 'block-update': {
+        const subscribers = new Map<Connection, SerializedBlock[]>()
+        for (const { position, block } of message.blocks) {
+          const { chunk } = this.world.setBlock(position, block)
+          for (const subscriber of chunk.subscribers) {
+            if (subscriber === conn) {
+              continue
+            }
+            let updates = subscribers.get(subscriber)
+            if (!updates) {
+              updates = []
+              subscribers.set(subscriber, updates)
+            }
+            updates.push({ position, block })
+          }
+        }
+        for (const [subscriber, blocks] of subscribers) {
+          subscriber.send({ type: 'block-update', blocks })
         }
         break
       }

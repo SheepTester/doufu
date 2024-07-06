@@ -1,4 +1,9 @@
-import { SerializedChunk } from '../../common/message'
+import {
+  ClientMessage,
+  SerializedBlock,
+  SerializedChunk,
+  ServerMessage
+} from '../../common/message'
 import { Vector3 } from '../../common/Vector3'
 import { Block } from '../../common/world/Block'
 import { World } from '../../common/world/World'
@@ -10,6 +15,7 @@ import { Context } from './Context'
 export class ClientWorld extends World<ClientChunk> {
   #context: Context
 
+  #server: Connection<ServerMessage, ClientMessage>
   #meshWorker = new Connection<MeshWorkerMessage, MeshWorkerRequest>(
     message => {
       switch (message.type) {
@@ -30,11 +36,15 @@ export class ClientWorld extends World<ClientChunk> {
     }
   )
 
-  constructor (context: Context) {
+  constructor (
+    context: Context,
+    server: Connection<ServerMessage, ClientMessage>
+  ) {
     super({
       createChunk: position => new ClientChunk(context, position)
     })
     this.#context = context
+    this.#server = server
     this.#meshWorker.connectWorker('./client/mesh/index.js')
   }
 
@@ -53,6 +63,19 @@ export class ClientWorld extends World<ClientChunk> {
       type: 'block-update',
       blocks: [{ position, block }]
     })
+    if (broadcast) {
+      this.#server.send({ type: 'block-update', blocks: [{ position, block }] })
+    }
     return super.setBlock(position, block)
+  }
+
+  setBlocks (blocks: SerializedBlock[], broadcast: boolean): void {
+    this.#meshWorker.send({ type: 'block-update', blocks })
+    if (broadcast) {
+      this.#server.send({ type: 'block-update', blocks })
+    }
+    for (const { position, block } of blocks) {
+      super.setBlock(position, block)
+    }
   }
 }

@@ -258,8 +258,8 @@ export class Player {
     this[`${axis}v`] = endVel
   }
 
-  interact (): void {
-    const result = this.world.raycast(this, this.camera.getForward())
+  interact (range: number): void {
+    const result = this.world.raycast(this, this.camera.getForward(), range)
     if (!result) {
       return
     }
