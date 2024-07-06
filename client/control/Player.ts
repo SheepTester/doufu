@@ -275,6 +275,16 @@ export class Player {
         y: result.block.y + result.normal.y,
         z: result.block.z + result.normal.z
       }
+      if (
+        target.x < this.x + this.options.collisionRadius &&
+        this.x - this.options.collisionRadius < target.x + 1 &&
+        target.z < this.z + this.options.collisionRadius &&
+        this.z - this.options.collisionRadius < target.z + 1 &&
+        target.y < this.y + this.options.head &&
+        this.y - this.options.feet < target.y + 1
+      ) {
+        return
+      }
       if (this.world.getBlock(target) === Block.AIR) {
         this.world.setBlock(target, Block.WHITE, true)
       }
