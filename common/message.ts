@@ -28,7 +28,7 @@ export function encode (
   switch (message.type) {
     case 'ping':
     case 'pong': {
-      return new Int32Array([0])
+      return new Int32Array([69])
     }
     case 'subscribe-chunks': {
       return new Int32Array([
@@ -38,7 +38,7 @@ export function encode (
     }
     case 'chunk-data': {
       const chunks: number[] = []
-      let offset = 32 + message.chunks.length * 16
+      let offset = (2 + message.chunks.length * 4) * 4
       for (const {
         position: { x, y, z },
         data
@@ -69,20 +69,20 @@ export function encode (
 }
 
 export function decodeServer (buffer: ArrayBuffer): ServerMessage {
-  const view = new DataView(buffer)
-  switch (view.getInt32(0)) {
-    case 0: {
+  const view = new Int32Array(buffer, 0, Math.floor(buffer.byteLength / 4))
+  switch (view[0]) {
+    case 69: {
       return { type: 'pong' }
     }
     case 1: {
-      const chunkCount = view.getInt32(1)
+      const chunkCount = view[1]
       const chunks = Array.from({ length: chunkCount }, (_, i) => ({
         position: {
-          x: view.getInt32(i * 16 + 32),
-          y: view.getInt32(i * 16 + 32 + 4),
-          z: view.getInt32(i * 16 + 32 + 8)
+          x: view[i * 4 + 2],
+          y: view[i * 4 + 2 + 1],
+          z: view[i * 4 + 2 + 2]
         },
-        offset: view.getInt32(i * 16 + 32 + 12)
+        offset: view[i * 4 + 2 + 3]
       }))
       return {
         type: 'chunk-data',
@@ -98,57 +98,63 @@ export function decodeServer (buffer: ArrayBuffer): ServerMessage {
     }
     case 2: {
       const blocks: SerializedBlock[] = []
-      for (let i = 4; i < buffer.byteLength; i += 16) {
+      for (let i = 1; i < view.length; i += 4) {
         blocks.push({
           position: {
-            x: view.getInt32(i),
-            y: view.getInt32(i + 4),
-            z: view.getInt32(i + 8)
+            x: view[i],
+            y: view[i + 1],
+            z: view[i + 2]
           },
-          block: view.getInt32(i + 12)
+          block: view[i + 3]
         })
       }
       return { type: 'block-update', blocks }
     }
     default: {
-      throw new TypeError(`Invalid message tag ${view.getInt32(0)}`)
+      console.error(buffer, new TextDecoder().decode(buffer))
+      throw new TypeError(`Invalid server message tag ${view[0]}`)
     }
   }
 }
 
-export function decodeClient (buffer: ArrayBuffer): ClientMessage {
-  const view = new DataView(buffer)
-  switch (view.getInt32(0)) {
-    case 0: {
+export function decodeClient (
+  buffer: ArrayBuffer,
+  byteOffset = 0,
+  byteLength = buffer.byteLength - byteOffset
+): ClientMessage {
+  const view = new Int32Array(buffer, byteOffset, Math.floor(byteLength / 4))
+  switch (view[0]) {
+    case 69: {
       return { type: 'ping' }
     }
     case 1: {
       const chunks: Vector3[] = []
-      for (let i = 4; i < buffer.byteLength; i += 12) {
+      for (let i = 1; i < view.length; i += 3) {
         chunks.push({
-          x: view.getInt32(i),
-          y: view.getInt32(i + 4),
-          z: view.getInt32(i + 8)
+          x: view[i],
+          y: view[i + 1],
+          z: view[i + 2]
         })
       }
       return { type: 'subscribe-chunks', chunks }
     }
     case 2: {
       const blocks: SerializedBlock[] = []
-      for (let i = 4; i < buffer.byteLength; i += 16) {
+      for (let i = 1; i < view.length; i += 4) {
         blocks.push({
           position: {
-            x: view.getInt32(i),
-            y: view.getInt32(i + 4),
-            z: view.getInt32(i + 8)
+            x: view[i],
+            y: view[i + 1],
+            z: view[i + 2]
           },
-          block: view.getInt32(i + 12)
+          block: view[i + 3]
         })
       }
       return { type: 'block-update', blocks }
     }
     default: {
-      throw new TypeError(`Invalid message tag ${view.getUint8(0)}`)
+      console.error(buffer, new TextDecoder().decode(buffer))
+      throw new TypeError(`Invalid client message tag ${view[0]}`)
     }
   }
 }

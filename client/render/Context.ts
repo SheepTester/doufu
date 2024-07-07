@@ -418,7 +418,7 @@ async function compile (
   const module = device.createShaderModule({ label, code })
   const { messages } = await module.getCompilationInfo()
   if (messages.some(message => message.type === 'error')) {
-    console.log(messages)
+    console.error(messages)
     throw new SyntaxError(
       `${label} failed to compile.\n\n${messages
         .map(message => message.message)

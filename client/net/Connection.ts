@@ -40,7 +40,7 @@ export class Connection<ReceiveType, SendType = never> {
     ws.addEventListener('message', e => {
       if (typeof e.data === 'string') {
         if (this.options.decode) {
-          console.log(e.data)
+          console.error(e.data)
           throw new TypeError(
             'Expected binary message, received string message'
           )
@@ -48,14 +48,14 @@ export class Connection<ReceiveType, SendType = never> {
         this.options.onMessage(JSON.parse(e.data))
       } else if (e.data instanceof ArrayBuffer) {
         if (!this.options.decode) {
-          console.log(e.data)
+          console.error(e.data)
           throw new TypeError(
             'Received binary message, but no decoder was given'
           )
         }
         this.options.onMessage(this.options.decode(e.data))
       } else {
-        console.log(e.data)
+        console.error(e.data)
         throw new TypeError(`Unknown message type ${e.data.constructor.name}`)
       }
     })
