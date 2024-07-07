@@ -24,7 +24,7 @@ const clientContext = await esbuild.context({
   minify: !serve,
   define: {
     IS_BROWSER: 'true',
-    USE_WS: JSON.stringify(serve ? 'ws://localhost:10069/ws' : server)
+    USE_WS: JSON.stringify(serve && server ? 'ws://localhost:10069/ws' : server)
   },
   external: ['worker_threads', 'path']
 })

@@ -91,7 +91,7 @@ export function decodeServer (buffer: ArrayBuffer): ServerMessage {
           data: new Uint8Array(
             buffer,
             offset,
-            (chunks[i]?.offset ?? buffer.byteLength) - offset
+            (chunks[i + 1]?.offset ?? buffer.byteLength) - offset
           )
         }))
       }
