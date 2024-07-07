@@ -15,7 +15,7 @@ import { ClientChunk } from './render/ClientChunk'
 import { Player } from './control/Player'
 import { ClientWorld } from './render/ClientWorld'
 
-declare const USE_WS: boolean
+declare const USE_WS: string | boolean
 
 if (!navigator.gpu) {
   throw new TypeError('Your browser does not support WebGPU.')
@@ -70,7 +70,11 @@ const server = new Connection<ServerMessage, ClientMessage>({
   decode: decodeServer
 })
 if (USE_WS) {
-  server.connect(window.location.origin.replace('http', 'ws') + '/ws')
+  server.connect(
+    typeof USE_WS === 'string'
+      ? USE_WS
+      : window.location.origin.replace('http', 'ws') + '/ws'
+  )
 } else {
   server.connectWorker('./server/worker.js')
 }

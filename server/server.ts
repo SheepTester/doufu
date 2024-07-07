@@ -4,6 +4,8 @@ import { WebSocketServer } from 'ws'
 import { Connection, Server } from '.'
 import { decodeClient, encode } from '../common/message'
 
+const args = process.argv.slice(2)
+
 const gameServer = new Server()
 
 const app = express()
@@ -23,18 +25,14 @@ wss.on('connection', ws => {
       ws.send(encode(message))
     }
   }
+  ws.binaryType = 'arraybuffer'
   gameServer.handleOpen(connection)
-  ws.on('message', (data, isBinary) => {
-    if (data instanceof Buffer) {
-      gameServer.handleMessage(
-        connection,
-        // Unfortunate copying but this is because `byteOffset` isn't
-        // necessarily divisible by 4. Also makes making the decoder less error
-        // prone
-        decodeClient(
-          data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)
-        )
-      )
+  ws.on('message', data => {
+    if (data instanceof ArrayBuffer) {
+      gameServer.handleMessage(connection, decodeClient(data))
+    } else {
+      console.error(data)
+      throw new TypeError(`Unexpected message type ${data.constructor.name}`)
     }
   })
   ws.on('close', () => {
@@ -43,4 +41,6 @@ wss.on('connection', ws => {
 })
 
 server.listen(10069)
-console.log('http://localhost:10069/')
+if (!process.env.ESBUILD_SILENT) {
+  console.log('http://localhost:10069/')
+}

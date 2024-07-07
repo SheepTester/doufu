@@ -6,6 +6,7 @@
     "dev": "node esbuild.config.js serve"
   },
   "devDependencies": {
+    "@es-exec/esbuild-plugin-serve": "^0.0.5",
     "@types/express": "^4.17.21",
     "@types/node": "^20.14.9",
     "@types/ws": "^8.5.10",

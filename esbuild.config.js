@@ -3,17 +3,13 @@
 // https://github.com/evanw/esbuild/issues/69#issuecomment-1302521672
 
 import esbuild from 'esbuild'
+import esbuildServe from '@es-exec/esbuild-plugin-serve'
 import fs from 'node:fs/promises'
 import http from 'node:http'
 
 const args = process.argv.slice(2)
 const serve = args.includes('serve')
 const server = args.includes('server')
-
-if (serve && server) {
-  console.error('Hot reloading the WebSocket server is coming soon!')
-  process.exit(1)
-}
 
 const clientContext = await esbuild.context({
   entryPoints: ['client/index.ts'],
@@ -26,7 +22,10 @@ const clientContext = await esbuild.context({
   bundle: true,
   sourcemap: 'linked',
   minify: !serve,
-  define: { IS_BROWSER: 'true', USE_WS: String(server) },
+  define: {
+    IS_BROWSER: 'true',
+    USE_WS: JSON.stringify(serve ? 'ws://localhost:10069/ws' : server)
+  },
   external: ['worker_threads', 'path']
 })
 const workerContext = await esbuild.context({
@@ -54,7 +53,15 @@ const serverContext = await esbuild.context({
   platform: 'node',
   format: 'cjs',
   bundle: true,
-  define: { IS_BROWSER: 'false' }
+  define: { IS_BROWSER: 'false' },
+  plugins: serve
+    ? [
+        esbuildServe({
+          main: 'dist/server.cjs',
+          env: { ESBUILD_SILENT: 'true' }
+        })
+      ]
+    : []
 })
 
 /**
@@ -140,6 +147,10 @@ if (serve) {
     .listen(3000, () => {
       console.log('http://localhost:3000/')
     })
+
+  if (server) {
+    await serverContext.watch()
+  }
 } else {
   await clientContext.rebuild()
   await workerContext.rebuild()
