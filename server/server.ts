@@ -1,10 +1,8 @@
 import express from 'express'
-import http from 'http'
+import http from 'node:http'
 import { WebSocketServer } from 'ws'
 import { Connection, Server } from '.'
 import { decodeClient, encode } from '../common/message'
-
-const args = process.argv.slice(2)
 
 const gameServer = new Server()
 

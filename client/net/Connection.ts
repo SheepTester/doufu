@@ -81,8 +81,8 @@ export class Connection<ReceiveType, SendType = never> {
     if (IS_BROWSER) {
       worker = path ? new Worker(path) : self
     } else {
-      const { Worker, parentPort } = await import('worker_threads')
-      const { resolve } = await import('path')
+      const { Worker, parentPort } = await import('node:worker_threads')
+      const { resolve } = await import('node:path')
       if (path) {
         worker = new Worker(resolve(__dirname, path.replace('.js', '.cjs')))
       } else {

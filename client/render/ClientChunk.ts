@@ -1,11 +1,11 @@
 import { mat4 } from 'wgpu-matrix'
 import { toKey, Vector3 } from '../../common/Vector3'
 import { Chunk, SIZE } from '../../common/world/Chunk'
-import { Context } from './Context'
+import { Context, Mesh } from './Context'
 import { Group } from './Group'
 import { Uniform } from './Uniform'
 
-export class ClientChunk extends Chunk {
+export class ClientChunk extends Chunk implements Mesh {
   #context: Context
   #chunkGroup: Group<{ transform: Uniform }>
   #vertices: GPUBuffer | null = null

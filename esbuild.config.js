@@ -2,8 +2,8 @@
 
 // https://github.com/evanw/esbuild/issues/69#issuecomment-1302521672
 
-import esbuild from 'esbuild'
 import esbuildServe from '@es-exec/esbuild-plugin-serve'
+import esbuild from 'esbuild'
 import fs from 'node:fs/promises'
 import http from 'node:http'
 
@@ -26,7 +26,7 @@ const clientContext = await esbuild.context({
     IS_BROWSER: 'true',
     USE_WS: JSON.stringify(serve && server ? 'ws://localhost:10069/ws' : server)
   },
-  external: ['worker_threads', 'path']
+  external: ['node:*']
 })
 const workerContext = await esbuild.context({
   entryPoints: server
@@ -44,7 +44,7 @@ const workerContext = await esbuild.context({
   sourcemap: 'linked',
   minify: !serve,
   define: { IS_BROWSER: 'true' },
-  external: ['worker_threads', 'path']
+  external: ['node:*']
 })
 const serverContext = await esbuild.context({
   entryPoints: ['server/server.ts', 'server/generate/index.ts'],

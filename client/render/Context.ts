@@ -3,11 +3,19 @@ import atlasPath from '../asset/atlas.png'
 import { Group } from './Group'
 import postprocessCode from './postprocess.wgsl'
 import { Uniform } from './Uniform'
+import modelCode from './model.wgsl'
 import voxelOutlineCode from './voxel-outline.wgsl'
 import voxelCode from './voxel.wgsl'
 
 export interface Mesh {
   render(pass: GPURenderPassEncoder): void
+}
+
+export type Texture = {
+  texture: GPUTexture
+  sampler: GPUSampler
+  width: number
+  height: number
 }
 
 export type ContextOptions = {
@@ -22,6 +30,7 @@ export class Context {
   #format: GPUTextureFormat
   voxelCommon
   outlineCommon
+  modelCommon
   voxelOutlineEnabled = false
   #postprocessCommon
   #options: Partial<ContextOptions>
@@ -41,6 +50,10 @@ export class Context {
       transform: Uniform
       resolution: Uniform
     }>,
+    modelCommon: Group<{
+      camera: Uniform
+      perspective: Uniform
+    }>,
     postprocessCommon: Group<{ canvasSize: Uniform }>,
     options: Partial<ContextOptions>
   ) {
@@ -48,6 +61,7 @@ export class Context {
     this.#format = format
     this.voxelCommon = voxelCommon
     this.outlineCommon = outlineCommon
+    this.modelCommon = modelCommon
     this.#postprocessCommon = postprocessCommon
     this.#options = options
     this.#timestamp = new TimestampCollector(device)
@@ -116,25 +130,10 @@ export class Context {
       }
     })
 
-    const source = await fetch(atlasPath)
-      .then(r => r.blob())
-      .then(blob => createImageBitmap(blob, { colorSpaceConversion: 'none' }))
-    const texture = device.createTexture({
-      label: 'texture',
-      format: 'rgba8unorm',
-      size: [source.width, source.height],
-      usage:
-        GPUTextureUsage.TEXTURE_BINDING |
-        GPUTextureUsage.COPY_DST |
-        GPUTextureUsage.RENDER_ATTACHMENT
-    })
-    device.queue.copyExternalImageToTexture(
-      { source, flipY: true },
-      { texture },
-      { width: source.width, height: source.height }
+    const { texture, sampler, width, height } = await loadTexture(
+      device,
+      atlasPath
     )
-    const sampler = device.createSampler()
-
     const voxelCommon = new Group(device, voxelPipeline, 0, {
       perspective: new Uniform(device, 0, 4 * 4 * 4),
       camera: new Uniform(device, 1, 4 * 4 * 4),
@@ -143,7 +142,7 @@ export class Context {
       textureSize: new Uniform(device, 4, 4 * 2)
     })
     voxelCommon.uniforms.textureSize.data(
-      new Float32Array([source.width / 16, source.height / 16])
+      new Float32Array([width / 16, height / 16])
     )
 
     const outlineModule = await compile(
@@ -172,9 +171,64 @@ export class Context {
       transform: new Uniform(device, 2, 4 * 4 * 4),
       resolution: new Uniform(device, 3, 2 * 4)
     })
-    outlineCommon.uniforms.transform.data(
-      new Float32Array(mat4.translation([0, 20, 0]))
-    )
+
+    const modelModule = await compile(device, modelCode, 'entity model shader')
+    const modelPipeline = device.createRenderPipeline({
+      label: 'entity model pipeline',
+      layout: 'auto',
+      vertex: {
+        module: modelModule,
+        entryPoint: 'vertex_main',
+        buffers: [
+          {
+            arrayStride: (4 * 4 + 4 + 4) * 4,
+            stepMode: 'vertex',
+            attributes: [
+              { shaderLocation: 0, offset: 0, format: 'float32x4' },
+              { shaderLocation: 1, offset: 4 * 4, format: 'float32x4' },
+              { shaderLocation: 2, offset: 4 * 4 * 2, format: 'float32x4' },
+              { shaderLocation: 3, offset: 4 * 4 * 3, format: 'float32x4' },
+              { shaderLocation: 8, offset: 4 * 4 * 4, format: 'float32x2' },
+              {
+                shaderLocation: 9,
+                offset: 4 * 4 * 4 + 4 * 4,
+                format: 'float32x3'
+              }
+            ]
+          },
+          {
+            arrayStride: (4 * 4 + 4 + 4) * 4,
+            stepMode: 'instance',
+            attributes: [
+              { shaderLocation: 0, offset: 0, format: 'float32x4' },
+              { shaderLocation: 1, offset: 4 * 4, format: 'float32x4' },
+              { shaderLocation: 2, offset: 4 * 4 * 2, format: 'float32x4' },
+              { shaderLocation: 3, offset: 4 * 4 * 3, format: 'float32x4' },
+              { shaderLocation: 4, offset: 4 * 4 * 4, format: 'float32x2' },
+              {
+                shaderLocation: 5,
+                offset: 4 * 4 * 4 + 4 * 4,
+                format: 'float32x3'
+              }
+            ]
+          }
+        ]
+      },
+      fragment: {
+        module: modelModule,
+        entryPoint: 'fragment_main',
+        targets: [{ format }]
+      },
+      depthStencil: {
+        depthWriteEnabled: true,
+        depthCompare: 'less',
+        format: 'depth24plus'
+      }
+    })
+    const modelCommon = new Group(device, modelPipeline, 0, {
+      perspective: new Uniform(device, 0, 4 * 4 * 4),
+      camera: new Uniform(device, 1, 4 * 4 * 4)
+    })
 
     const postprocessModule = await compile(
       device,
@@ -203,6 +257,7 @@ export class Context {
       format,
       voxelCommon,
       outlineCommon,
+      modelCommon,
       postprocessCommon,
       options
     )
@@ -218,6 +273,7 @@ export class Context {
     const camera = new Float32Array(cameraTransform)
     this.voxelCommon.uniforms.camera.data(camera)
     this.outlineCommon.uniforms.camera.data(camera)
+    this.modelCommon.uniforms.camera.data(camera)
 
     // Encodes commands
     const encoder = this.device.createCommandEncoder({
@@ -243,10 +299,12 @@ export class Context {
         },
         timestampWrites: this.#timestamp?.getTimestampWrites()
       })
-      pass.setPipeline(this.voxelCommon.pipeline)
-      pass.setBindGroup(0, this.voxelCommon.group)
-      for (const mesh of this.voxelMeshes) {
-        mesh.render(pass)
+      if (this.voxelMeshes.length > 0) {
+        pass.setPipeline(this.voxelCommon.pipeline)
+        pass.setBindGroup(0, this.voxelCommon.group)
+        for (const mesh of this.voxelMeshes) {
+          mesh.render(pass)
+        }
       }
       if (this.voxelOutlineEnabled) {
         pass.setPipeline(this.outlineCommon.pipeline)
@@ -301,6 +359,7 @@ export class Context {
     this.outlineCommon.uniforms.resolution.data(
       new Float32Array([width / dpr, height / dpr])
     )
+    this.modelCommon.uniforms.perspective.data(perspective)
     this.#postprocessCommon.uniforms.canvasSize.data(
       new Float32Array([width, height])
     )
@@ -426,4 +485,34 @@ async function compile (
     )
   }
   return module
+}
+
+export async function loadTexture (
+  device: GPUDevice,
+  image: string | ImageBitmap
+): Promise<Texture> {
+  const source =
+    typeof image === 'string'
+      ? await fetch(image)
+          .then(r => r.blob())
+          .then(blob =>
+            createImageBitmap(blob, { colorSpaceConversion: 'none' })
+          )
+      : image
+  const texture = device.createTexture({
+    label: 'texture',
+    format: 'rgba8unorm',
+    size: [source.width, source.height],
+    usage:
+      GPUTextureUsage.TEXTURE_BINDING |
+      GPUTextureUsage.COPY_DST |
+      GPUTextureUsage.RENDER_ATTACHMENT
+  })
+  device.queue.copyExternalImageToTexture(
+    { source, flipY: true },
+    { texture },
+    { width: source.width, height: source.height }
+  )
+  const sampler = device.createSampler()
+  return { texture, sampler, width: source.width, height: source.height }
 }

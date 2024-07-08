@@ -1,5 +1,5 @@
 import { Vector3 } from '../../common/Vector3'
-import { Block, getTexture, isOpaque } from '../../common/world/Block'
+import { getTexture, isOpaque } from '../../common/world/Block'
 import { Chunk, neighborIndex, SIZE } from '../../common/world/Chunk'
 
 const enum FaceDirection {

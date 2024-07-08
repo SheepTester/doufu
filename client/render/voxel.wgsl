@@ -12,6 +12,34 @@ fn to_i8(byte: u32) -> i32 {
     return i32(select(byte, byte - 256, byte >> 7 != 0));
 }
 
+// The back face (facing away from the camera)
+const square_vertices = array(
+    vec2(0.0, 0.0), vec2(0.0, 1.0), vec2(1.0, 1.0),
+    vec2(1.0, 1.0), vec2(1.0, 0.0), vec2(0.0, 0.0),
+);
+fn get_cube_vertex(face_index: u32, face: u32) -> vec3<f32> {
+    let square_vertex = square_vertices[face_index];
+    let flipped = select(
+        vec3(square_vertex.x, square_vertex.y, 0.0),
+        // Rotate ("flip") around center of cube
+        vec3(1.0 - square_vertex.x, square_vertex.y, 1.0),
+        (face & 1) != 0,
+    );
+    let rotated = select(
+        select(
+            // 00x: back/front
+            flipped,
+            // 01x: left/right
+            vec3(flipped.z, flipped.y, 1.0 - flipped.x),
+            (face & 2) != 0
+        ),
+        // 10x: bottom/top
+        vec3(flipped.x, flipped.z, 1.0 - flipped.y),
+        (face & 4) != 0
+    );
+    return rotated;
+}
+
 @vertex
 fn vertex_main(
     @builtin(vertex_index) index: u32,
@@ -34,35 +62,13 @@ fn vertex_main(
     ));
     let face = input[3];
 
+    // Hardcoded for now
     const textures = array(
         vec2(0.0, 1.0), vec2(1.0, 1.0), vec2(2.0, 1.0),
     );
     let texture_id = input[4];
 
-    // The back face (facing away from the camera)
-    const square_vertices = array(
-        vec2(0.0, 0.0), vec2(0.0, 1.0), vec2(1.0, 1.0),
-        vec2(1.0, 1.0), vec2(1.0, 0.0), vec2(0.0, 0.0),
-    );
-    let square_vertex = square_vertices[index];
-    let flipped = select(
-        vec3(square_vertex.x, square_vertex.y, 0.0),
-        // Rotate ("flip") around center of cube
-        vec3(1.0 - square_vertex.x, square_vertex.y, 1.0),
-        (face & 1) != 0,
-    );
-    let rotated = select(
-        select(
-            // 00x: back/front
-            flipped,
-            // 01x: left/right
-            vec3(flipped.z, flipped.y, 1.0 - flipped.x),
-            (face & 2) != 0
-        ),
-        // 10x: bottom/top
-        vec3(flipped.x, flipped.z, 1.0 - flipped.y),
-        (face & 4) != 0
-    );
+    let vertex = get_cube_vertex(index, face);
 
     const ao_indices = array<u32, 6>(0, 1, 3, 3, 2, 0);
     let corner_neighbors = (input[5] >> (2 * ao_indices[index])) & 3;
@@ -80,8 +86,8 @@ fn vertex_main(
     const LIGHT = normalize(vec3(0.1, -1, -0.5));
 
     var result: VertexOutput;
-    result.position = perspective * camera * transform * vec4((rotated + position.xyz), 1.0);
-    result.tex_coord = textures[texture_id] + vec2(1 - f32(square_vertices[index].x), f32(square_vertices[index].y));
+    result.position = perspective * camera * transform * vec4((vertex + position.xyz), 1.0);
+    result.tex_coord = textures[texture_id] + vec2(1 - square_vertices[index].x, square_vertices[index].y);
     result.darkness = (dot(normal, -LIGHT) / 8 + 0.875) * (1.0 - f32(corner_neighbors) / 3.0 * 0.5);
     return result;
 }
@@ -96,7 +102,7 @@ fn fragment_main(vertex: VertexOutput) -> @location(0) vec4<f32> {
     let frac_whole = modf(vertex.tex_coord);
     let coord = frac_whole.whole + clamp(frac_whole.fract, vec2(1/32.0, 1/32.0), vec2(31/32.0, 31/32.0));
     let sample = textureSample(texture, texture_sampler, coord / texture_size);
-    if (sample.a == 0) {
+    if (sample.a < 0.5) {
         discard;
     }
     return vec4(sample.rgb * vertex.darkness, sample.a);
