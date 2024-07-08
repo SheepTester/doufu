@@ -87,6 +87,7 @@ fn vertex_main(
 
     var result: VertexOutput;
     result.position = perspective * camera * transform * vec4((vertex + position.xyz), 1.0);
+    // The 1.0 - x part is necessary because our base cube face is the back face
     result.tex_coord = textures[texture_id] + vec2(1 - square_vertices[index].x, square_vertices[index].y);
     result.darkness = (dot(normal, -LIGHT) / 8 + 0.875) * (1.0 - f32(corner_neighbors) / 3.0 * 0.5);
     return result;

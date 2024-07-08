@@ -190,7 +190,7 @@ export class Model implements Mesh {
     model: BedrockModel,
     texturePath: string
   ): Promise<Model[]> {
-    const texture = await loadTexture(context.device, texturePath)
+    const texture = await loadTexture(context.device, texturePath, false)
     return model['minecraft:geometry'].map(
       ({ description: { texture_width, texture_height }, bones }) =>
         new Model(
@@ -211,16 +211,10 @@ export class Model implements Mesh {
                 }): Cube => {
                   const transform = mat4.identity()
                   mat4.scale(transform, [1 / 16, 1 / 16, 1 / 16], transform)
-                  mat4.scale(transform, size, transform)
-                  mat4.translate(transform, origin, transform)
-                  mat4.translate(
+                  mat4.translate(transform, pivot, transform)
+                  mat4.rotateZ(
                     transform,
-                    [-pivot[0], -pivot[1], -pivot[2]],
-                    transform
-                  )
-                  mat4.rotateX(
-                    transform,
-                    rotation[0] * (Math.PI / 180),
+                    rotation[2] * (Math.PI / 180),
                     transform
                   )
                   mat4.rotateY(
@@ -228,12 +222,18 @@ export class Model implements Mesh {
                     rotation[1] * (Math.PI / 180),
                     transform
                   )
-                  mat4.rotateZ(
+                  mat4.rotateX(
                     transform,
-                    rotation[2] * (Math.PI / 180),
+                    rotation[0] * (Math.PI / 180),
                     transform
                   )
-                  mat4.translate(transform, pivot, transform)
+                  mat4.translate(
+                    transform,
+                    [-pivot[0], -pivot[1], -pivot[2]],
+                    transform
+                  )
+                  mat4.translate(transform, origin, transform)
+                  mat4.scale(transform, size, transform)
                   const group = new Group(
                     context.device,
                     context.modelCommon.pipeline,

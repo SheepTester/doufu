@@ -476,7 +476,8 @@ async function compile (
 
 export async function loadTexture (
   device: GPUDevice,
-  image: string | ImageBitmap
+  image: string | ImageBitmap,
+  flipY = true
 ): Promise<Texture> {
   const source =
     typeof image === 'string'
@@ -496,7 +497,7 @@ export async function loadTexture (
       GPUTextureUsage.RENDER_ATTACHMENT
   })
   device.queue.copyExternalImageToTexture(
-    { source, flipY: true },
+    { source, flipY },
     { texture },
     { width: source.width, height: source.height }
   )
