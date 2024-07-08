@@ -6,10 +6,12 @@ export type ServerMessage =
   | { type: 'pong' }
   | { type: 'chunk-data'; chunks: SerializedChunk[] }
   | { type: 'block-update'; blocks: SerializedBlock[] }
+  | { type: 'entity-update'; entities: SerializedEntity[] }
 export type ClientMessage =
   | { type: 'ping' }
   | { type: 'subscribe-chunks'; chunks: Vector3[] }
   | { type: 'block-update'; blocks: SerializedBlock[] }
+  | { type: 'move'; position: Vector3; rotationY: number }
 
 export type SerializedChunk = {
   position: Vector3
@@ -18,6 +20,11 @@ export type SerializedChunk = {
 export type SerializedBlock = {
   position: Vector3
   block: Block
+}
+export type SerializedEntity = {
+  id: number
+  position: Vector3
+  rotationY: number
 }
 
 // NOTE: Assumes everyone is using little-endian hardware.
@@ -62,6 +69,26 @@ export function encode (
         ])
       ])
     }
+    case 'move': {
+      return merge([
+        new Int32Array([3, 0]),
+        new Float64Array([
+          message.position.x,
+          message.position.y,
+          message.position.z,
+          message.rotationY
+        ])
+      ])
+    }
+    case 'entity-update': {
+      return merge([
+        new Int32Array([3, message.entities.length]),
+        ...message.entities.map(
+          ({ id, position: { x, y, z }, rotationY }) =>
+            new Float64Array([id, x, y, z, rotationY])
+        )
+      ])
+    }
     default: {
       throw new TypeError(`Unknown message type '${message['type']}'`)
     }
@@ -70,6 +97,11 @@ export function encode (
 
 export function decodeServer (buffer: ArrayBuffer): ServerMessage {
   const view = new Int32Array(buffer, 0, Math.floor(buffer.byteLength / 4))
+  const floatView = new Float64Array(
+    buffer,
+    0,
+    Math.floor(buffer.byteLength / 8)
+  )
   switch (view[0]) {
     case 69: {
       return { type: 'pong' }
@@ -110,6 +142,20 @@ export function decodeServer (buffer: ArrayBuffer): ServerMessage {
       }
       return { type: 'block-update', blocks }
     }
+    case 3: {
+      return {
+        type: 'entity-update',
+        entities: Array.from({ length: view[1] }, (_, i) => ({
+          id: floatView[i * 5 + 1],
+          position: {
+            x: floatView[i * 5 + 1 + 1],
+            y: floatView[i * 5 + 1 + 2],
+            z: floatView[i * 5 + 1 + 3]
+          },
+          rotationY: floatView[i * 5 + 1 + 4]
+        }))
+      }
+    }
     default: {
       console.error(buffer, new TextDecoder().decode(buffer))
       throw new TypeError(`Invalid server message tag ${view[0]}`)
@@ -117,12 +163,13 @@ export function decodeServer (buffer: ArrayBuffer): ServerMessage {
   }
 }
 
-export function decodeClient (
-  buffer: ArrayBuffer,
-  byteOffset = 0,
-  byteLength = buffer.byteLength - byteOffset
-): ClientMessage {
-  const view = new Int32Array(buffer, byteOffset, Math.floor(byteLength / 4))
+export function decodeClient (buffer: ArrayBuffer): ClientMessage {
+  const view = new Int32Array(buffer, 0, Math.floor(buffer.byteLength / 4))
+  const floatView = new Float64Array(
+    buffer,
+    0,
+    Math.floor(buffer.byteLength / 8)
+  )
   switch (view[0]) {
     case 69: {
       return { type: 'ping' }
@@ -151,6 +198,13 @@ export function decodeClient (
         })
       }
       return { type: 'block-update', blocks }
+    }
+    case 3: {
+      return {
+        type: 'move',
+        position: { x: floatView[1], y: floatView[2], z: floatView[3] },
+        rotationY: floatView[4]
+      }
     }
     default: {
       console.error(buffer, new TextDecoder().decode(buffer))

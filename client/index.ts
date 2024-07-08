@@ -1,4 +1,4 @@
-import { mat4 } from 'wgpu-matrix'
+import { Mat4, mat4 } from 'wgpu-matrix'
 import { SIZE } from '../common/world/Chunk'
 import './index.css'
 import { handleError } from './debug/error'
@@ -46,6 +46,7 @@ new ResizeObserver(([{ devicePixelContentBoxSize }]) => {
   }
 }).observe(canvas)
 
+const entities: Record<number, Mat4> = {}
 const server = new Connection<ServerMessage, ClientMessage>({
   onMessage: message => {
     switch (message.type) {
@@ -59,6 +60,19 @@ const server = new Connection<ServerMessage, ClientMessage>({
       }
       case 'block-update': {
         world.setBlocks(message.blocks, false)
+        break
+      }
+      case 'entity-update': {
+        for (const {
+          id,
+          position: { x, y, z },
+          rotationY
+        } of message.entities) {
+          entities[id] = mat4.rotateY(mat4.translation([x, y, z]), rotationY)
+        }
+        for (const model of renderer.models) {
+          model.setInstances(Object.values(entities))
+        }
         break
       }
       default: {
@@ -146,6 +160,11 @@ const paint = () => {
 
   player.interact()
   player.doMovement(elapsed)
+  server.send({
+    type: 'move',
+    position: { x: player.x, y: player.y, z: player.z },
+    rotationY: player.camera.yaw
+  })
 
   ensureSubscribed(
     Array.from({ length: RANGE * 2 + 1 }, (_, i) =>
