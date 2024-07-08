@@ -3,9 +3,10 @@ import atlasPath from '../asset/atlas.png'
 import { Group } from './Group'
 import postprocessCode from './postprocess.wgsl'
 import { Uniform } from './Uniform'
-import modelCode from './model.wgsl'
+import modelCode from './model-cube.wgsl'
 import voxelOutlineCode from './voxel-outline.wgsl'
 import voxelCode from './voxel.wgsl'
+import { Model } from './Model'
 
 export interface Mesh {
   render(pass: GPURenderPassEncoder): void
@@ -26,6 +27,7 @@ export type ContextOptions = {
 export class Context {
   device: GPUDevice
   voxelMeshes: Mesh[] = []
+  models: Model[] = []
 
   #format: GPUTextureFormat
   voxelCommon
@@ -174,45 +176,23 @@ export class Context {
 
     const modelModule = await compile(device, modelCode, 'entity model shader')
     const modelPipeline = device.createRenderPipeline({
-      label: 'entity model pipeline',
+      label: 'entity model cube pipeline',
       layout: 'auto',
       vertex: {
         module: modelModule,
-        entryPoint: 'vertex_main',
-        buffers: [
-          {
-            arrayStride: (4 * 4 + 4 + 4) * 4,
-            stepMode: 'vertex',
-            attributes: [
-              { shaderLocation: 0, offset: 0, format: 'float32x4' },
-              { shaderLocation: 1, offset: 4 * 4, format: 'float32x4' },
-              { shaderLocation: 2, offset: 4 * 4 * 2, format: 'float32x4' },
-              { shaderLocation: 3, offset: 4 * 4 * 3, format: 'float32x4' },
-              { shaderLocation: 8, offset: 4 * 4 * 4, format: 'float32x2' },
-              {
-                shaderLocation: 9,
-                offset: 4 * 4 * 4 + 4 * 4,
-                format: 'float32x3'
-              }
-            ]
-          },
-          {
-            arrayStride: (4 * 4 + 4 + 4) * 4,
-            stepMode: 'instance',
-            attributes: [
-              { shaderLocation: 0, offset: 0, format: 'float32x4' },
-              { shaderLocation: 1, offset: 4 * 4, format: 'float32x4' },
-              { shaderLocation: 2, offset: 4 * 4 * 2, format: 'float32x4' },
-              { shaderLocation: 3, offset: 4 * 4 * 3, format: 'float32x4' },
-              { shaderLocation: 4, offset: 4 * 4 * 4, format: 'float32x2' },
-              {
-                shaderLocation: 5,
-                offset: 4 * 4 * 4 + 4 * 4,
-                format: 'float32x3'
-              }
-            ]
-          }
-        ]
+        entryPoint: 'vertex_main'
+        // buffers: [
+        //   {
+        //     arrayStride: (4 * 4 + 4 + 4) * 4,
+        //     stepMode: 'instance',
+        //     attributes: [
+        //       { shaderLocation: 0, offset: 0, format: 'float32x4' },
+        //       { shaderLocation: 1, offset: 4 * 4, format: 'float32x4' },
+        //       { shaderLocation: 2, offset: 4 * 4 * 2, format: 'float32x4' },
+        //       { shaderLocation: 3, offset: 4 * 4 * 3, format: 'float32x4' }
+        //     ]
+        //   }
+        // ]
       },
       fragment: {
         module: modelModule,
@@ -310,6 +290,13 @@ export class Context {
         pass.setPipeline(this.outlineCommon.pipeline)
         pass.setBindGroup(0, this.outlineCommon.group)
         pass.draw(6, 12)
+      }
+      if (this.models.length > 0) {
+        pass.setPipeline(this.modelCommon.pipeline)
+        pass.setBindGroup(0, this.modelCommon.group)
+        for (const model of this.models) {
+          model.render(pass)
+        }
       }
       pass.end()
 

@@ -201,4 +201,8 @@ const paint = () => {
 import pancakeGeo from './asset/pancake.geo.json'
 import pancakeTexture from './asset/pancake.png'
 import { Model } from './render/Model'
-console.log(await Model.fromBedrockModel(renderer, pancakeGeo, pancakeTexture))
+renderer.models = await Model.fromBedrockModel(
+  renderer,
+  pancakeGeo,
+  pancakeTexture
+)

@@ -6,11 +6,15 @@ struct VertexOutput {
 @group(0) @binding(0) var<uniform> perspective: mat4x4<f32>;
 @group(0) @binding(1) var<uniform> camera: mat4x4<f32>;
 
-// For all entity models
-@group(1) @binding(0) var<uniform> model_transform: mat4x4<f32>;
-@group(1) @binding(1) var<uniform> texture_size: vec2<f32>;
-@group(1) @binding(2) var texture_sampler: sampler;
-@group(1) @binding(3) var texture: texture_2d<f32>;
+// For all cubes of the entity model
+@group(1) @binding(0) var<uniform> texture_size: vec2<f32>;
+@group(1) @binding(1) var texture_sampler: sampler;
+@group(1) @binding(2) var texture: texture_2d<f32>;
+
+// For a given cube on all instances of the entity model
+@group(2) @binding(0) var<uniform> cube_transform: mat4x4<f32>;
+@group(2) @binding(1) var<uniform> uv: vec2<f32>;
+@group(2) @binding(2) var<uniform> cube_size: vec3<f32>;
 
 // The back face (facing away from the camera)
 const square_vertices = array(
@@ -43,25 +47,18 @@ fn get_cube_vertex(face_index: u32, face: u32) -> vec3<f32> {
 @vertex
 fn vertex_main(
     @builtin(vertex_index) index: u32,
-    // Per cube
-    @location(0) cube_transform_0: vec4<f32>,
-    @location(1) cube_transform_1: vec4<f32>,
-    @location(2) cube_transform_2: vec4<f32>,
-    @location(3) cube_transform_3: vec4<f32>,
-    @location(8) uv: vec2<f32>,
-    @location(9) cube_size: vec3<f32>,
-    // Per model
-    @location(4) cube_transform_0: vec4<f32>,
-    @location(5) cube_transform_1: vec4<f32>,
-    @location(6) cube_transform_2: vec4<f32>,
-    @location(7) cube_transform_3: vec4<f32>,
+    // Per entity's cube
+    // @location(0) entity_transform_0: vec4<f32>,
+    // @location(1) entity_transform_1: vec4<f32>,
+    // @location(2) entity_transform_2: vec4<f32>,
+    // @location(3) entity_transform_3: vec4<f32>,
 ) -> VertexOutput {
-    let cube_transform = mat4x4(
-        cube_transform_0,
-        cube_transform_1,
-        cube_transform_2,
-        cube_transform_3,
-    );
+    // let entity_transform = mat4x4(
+    //     entity_transform_0,
+    //     entity_transform_1,
+    //     entity_transform_2,
+    //     entity_transform_3,
+    // );
 
     let face = index / 6;
     let vertex = get_cube_vertex(index % 6, face);
@@ -90,7 +87,7 @@ fn vertex_main(
     let face_dimensions = all_face_dimensions[face / 2] * cube_size;
 
     var result: VertexOutput;
-    result.position = perspective * camera * model_transform * cube_transform * vec4(vertex, 1.0);
+    result.position = perspective * camera * cube_transform * vec4(vertex, 1.0);
     result.tex_coord = (uv + face_origin + face_dimensions * vec2(1 - square_vertices[index].x, square_vertices[index].y)) / texture_size;
     return result;
 }
@@ -98,8 +95,8 @@ fn vertex_main(
 @fragment
 fn fragment_main(vertex: VertexOutput) -> @location(0) vec4<f32> {
     let sample = textureSample(texture, texture_sampler, vertex.tex_coord);
-    if (sample.a < 0.5) {
-        discard;
-    }
-    return vec4(sample.rgb, sample.a);
+    // if (sample.a < 0.5) {
+    //     discard;
+    // }
+    return vec4(sample.rgb * 0.0 + vec3(1.0, 0.0, 0.0), sample.a * 0.0 + 1.0);
 }

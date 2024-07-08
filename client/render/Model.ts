@@ -4,6 +4,8 @@
 import { mat4, Mat4 } from 'wgpu-matrix'
 import { Vector3 } from '../../common/Vector3'
 import { Context, loadTexture, Mesh, Texture } from './Context'
+import { Group } from './Group'
+import { Uniform } from './Uniform'
 
 /** `number[]` part is to satisfy TypeScript JSON */
 export type Vec3 = [x: number, y: number, z: number] | number[]
@@ -130,7 +132,7 @@ export type BedrockModel = {
 }
 
 export type Cube = {
-  transform: Mat4
+  group: Group<{}>
   /** Top left of cube texture mapping. In texture units. */
   uv: [u: number, v: number]
   /** Used for texture mapping. In texture units. */
@@ -143,28 +145,44 @@ export type Bone = {
 }
 
 export class Model implements Mesh {
-  context: Context
-  texture: Texture
-  textureWidth: number
-  textureHeight: number
-  bones: Bone[]
+  #bones: Bone[]
+  #allCubes
+
+  #instanceCount = 0
+  #instances: GPUBuffer | null = null
 
   constructor (
     context: Context,
-    texture: Texture,
+    { sampler, texture }: Texture,
     textureWidth: number,
     textureHeight: number,
     bones: Bone[]
   ) {
-    this.context = context
-    this.texture = texture
-    this.textureWidth = textureWidth
-    this.textureHeight = textureHeight
-    this.bones = bones
+    this.#bones = bones
+
+    this.#allCubes = new Group(
+      context.device,
+      context.modelCommon.pipeline,
+      1,
+      {
+        textureSize: new Uniform(context.device, 0, 4 * 2),
+        sampler: { binding: 1, resource: sampler },
+        texture: { binding: 2, resource: texture.createView() }
+      }
+    )
+    this.#allCubes.uniforms.textureSize.data(
+      new Float32Array([textureWidth, textureHeight])
+    )
   }
 
   render (pass: GPURenderPassEncoder): void {
-    //
+    pass.setBindGroup(1, this.#allCubes.group)
+    for (const { cubes } of this.#bones) {
+      for (const { group } of cubes) {
+        pass.setBindGroup(2, group.group)
+        pass.draw(6 * 6)
+      }
+    }
   }
 
   static async fromBedrockModel (
@@ -192,6 +210,7 @@ export class Model implements Mesh {
                   uv: [u, v]
                 }): Cube => {
                   const transform = mat4.identity()
+                  mat4.scale(transform, [1 / 16, 1 / 16, 1 / 16], transform)
                   mat4.scale(transform, size, transform)
                   mat4.translate(transform, origin, transform)
                   mat4.translate(
@@ -199,12 +218,37 @@ export class Model implements Mesh {
                     [-pivot[0], -pivot[1], -pivot[2]],
                     transform
                   )
-                  mat4.rotateX(transform, rotation[0], transform)
-                  mat4.rotateY(transform, rotation[1], transform)
-                  mat4.rotateZ(transform, rotation[2], transform)
-                  mat4.translate(transform, pivot, transform)
-                  return {
+                  mat4.rotateX(
                     transform,
+                    rotation[0] * (Math.PI / 180),
+                    transform
+                  )
+                  mat4.rotateY(
+                    transform,
+                    rotation[1] * (Math.PI / 180),
+                    transform
+                  )
+                  mat4.rotateZ(
+                    transform,
+                    rotation[2] * (Math.PI / 180),
+                    transform
+                  )
+                  mat4.translate(transform, pivot, transform)
+                  const group = new Group(
+                    context.device,
+                    context.modelCommon.pipeline,
+                    2,
+                    {
+                      cubeTransform: new Uniform(context.device, 0, 4 * 4 * 4),
+                      uv: new Uniform(context.device, 1, 4 * 2),
+                      cubeSize: new Uniform(context.device, 2, 4 * 3)
+                    }
+                  )
+                  group.uniforms.cubeTransform.data(transform)
+                  group.uniforms.uv.data(new Float32Array([u, v]))
+                  group.uniforms.cubeSize.data(new Float32Array(size))
+                  return {
+                    group,
                     uv: [u, v],
                     size: { x: size[0], y: size[1], z: size[2] }
                   }
