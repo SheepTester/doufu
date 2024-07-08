@@ -88,16 +88,15 @@ fn vertex_main(
 
     var result: VertexOutput;
     result.position = perspective * camera * cube_transform * vec4(vertex, 1.0);
-    result.tex_coord = (uv + face_origin + face_dimensions * vec2(1.0 - square_vertices[index % 6].x, 1.0 - square_vertices[index % 6].y)) / texture_size;
+    result.tex_coord = uv + face_origin + face_dimensions * vec2(1.0 - square_vertices[index % 6].x, 1.0 - square_vertices[index % 6].y);
     return result;
 }
 
 @fragment
 fn fragment_main(vertex: VertexOutput) -> @location(0) vec4<f32> {
-    let sample = textureSample(texture, texture_sampler, vertex.tex_coord);
-    // if (sample.a < 0.5) {
-    //     discard;
-    // }
+    let sample = textureSample(texture, texture_sampler, vertex.tex_coord / texture_size);
+    if (sample.a < 0.5) {
+        discard;
+    }
     return vec4(sample.rgb, sample.a);
-    return vec4(vertex.tex_coord, 0.0, sample.a);
 }
