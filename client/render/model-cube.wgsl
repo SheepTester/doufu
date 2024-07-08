@@ -47,18 +47,17 @@ fn get_cube_vertex(face_index: u32, face: u32) -> vec3<f32> {
 @vertex
 fn vertex_main(
     @builtin(vertex_index) index: u32,
-    // Per entity's cube
-    // @location(0) entity_transform_0: vec4<f32>,
-    // @location(1) entity_transform_1: vec4<f32>,
-    // @location(2) entity_transform_2: vec4<f32>,
-    // @location(3) entity_transform_3: vec4<f32>,
+    @location(0) entity_transform_0: vec4<f32>,
+    @location(1) entity_transform_1: vec4<f32>,
+    @location(2) entity_transform_2: vec4<f32>,
+    @location(3) entity_transform_3: vec4<f32>,
 ) -> VertexOutput {
-    // let entity_transform = mat4x4(
-    //     entity_transform_0,
-    //     entity_transform_1,
-    //     entity_transform_2,
-    //     entity_transform_3,
-    // );
+    let entity_transform = mat4x4(
+        entity_transform_0,
+        entity_transform_1,
+        entity_transform_2,
+        entity_transform_3,
+    );
 
     let face = index / 6;
     let vertex = get_cube_vertex(index % 6, face);
@@ -87,7 +86,7 @@ fn vertex_main(
     let face_dimensions = all_face_dimensions[face / 2] * cube_size;
 
     var result: VertexOutput;
-    result.position = perspective * camera * cube_transform * vec4(vertex, 1.0);
+    result.position = perspective * camera * entity_transform * cube_transform * vec4(vertex, 1.0);
     result.tex_coord = uv + face_origin + face_dimensions * vec2(1.0 - square_vertices[index % 6].x, 1.0 - square_vertices[index % 6].y);
     return result;
 }

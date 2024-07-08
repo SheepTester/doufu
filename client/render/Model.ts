@@ -6,6 +6,7 @@ import { Vector3 } from '../../common/Vector3'
 import { Context, loadTexture, Mesh, Texture } from './Context'
 import { Group } from './Group'
 import { Uniform } from './Uniform'
+import { merge } from '../../common/buffer'
 
 /** `number[]` part is to satisfy TypeScript JSON */
 export type Vec3 = [x: number, y: number, z: number] | number[]
@@ -145,6 +146,7 @@ export type Bone = {
 }
 
 export class Model implements Mesh {
+  #device: GPUDevice
   #bones: Bone[]
   #allCubes
 
@@ -158,6 +160,7 @@ export class Model implements Mesh {
     textureHeight: number,
     bones: Bone[]
   ) {
+    this.#device = context.device
     this.#bones = bones
 
     this.#allCubes = new Group(
@@ -176,13 +179,36 @@ export class Model implements Mesh {
   }
 
   render (pass: GPURenderPassEncoder): void {
+    if (this.#instanceCount === 0 || !this.#instances) {
+      return
+    }
     pass.setBindGroup(1, this.#allCubes.group)
+    pass.setVertexBuffer(0, this.#instances)
     for (const { cubes } of this.#bones) {
       for (const { group } of cubes) {
         pass.setBindGroup(2, group.group)
-        pass.draw(6 * 6)
+        pass.draw(6 * 6, this.#instanceCount)
       }
     }
+  }
+
+  setInstances (matrices: Mat4[]) {
+    if (matrices.length > 0) {
+      if (!this.#instances || this.#instanceCount !== matrices.length) {
+        this.#instances?.destroy()
+        this.#instances = this.#device.createBuffer({
+          label: `entity model instances`,
+          size: matrices.length * 4 * 4 * 4,
+          usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
+        })
+      }
+      this.#device.queue.writeBuffer(
+        this.#instances,
+        0,
+        new Float32Array(merge(matrices).buffer)
+      )
+    }
+    this.#instanceCount = matrices.length
   }
 
   static async fromBedrockModel (

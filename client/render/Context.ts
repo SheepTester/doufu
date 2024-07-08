@@ -180,19 +180,19 @@ export class Context {
       layout: 'auto',
       vertex: {
         module: modelModule,
-        entryPoint: 'vertex_main'
-        // buffers: [
-        //   {
-        //     arrayStride: (4 * 4 + 4 + 4) * 4,
-        //     stepMode: 'instance',
-        //     attributes: [
-        //       { shaderLocation: 0, offset: 0, format: 'float32x4' },
-        //       { shaderLocation: 1, offset: 4 * 4, format: 'float32x4' },
-        //       { shaderLocation: 2, offset: 4 * 4 * 2, format: 'float32x4' },
-        //       { shaderLocation: 3, offset: 4 * 4 * 3, format: 'float32x4' }
-        //     ]
-        //   }
-        // ]
+        entryPoint: 'vertex_main',
+        buffers: [
+          {
+            arrayStride: 4 * 4 * 4,
+            stepMode: 'instance',
+            attributes: [
+              { shaderLocation: 0, offset: 0, format: 'float32x4' },
+              { shaderLocation: 1, offset: 4 * 4, format: 'float32x4' },
+              { shaderLocation: 2, offset: 4 * 4 * 2, format: 'float32x4' },
+              { shaderLocation: 3, offset: 4 * 4 * 3, format: 'float32x4' }
+            ]
+          }
+        ]
       },
       fragment: {
         module: modelModule,

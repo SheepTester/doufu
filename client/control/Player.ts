@@ -1,8 +1,10 @@
 import { mat4, Mat4 } from 'wgpu-matrix'
 import { Vector3 } from '../../common/Vector3'
 import { Camera } from './Camera'
-import { Block, isSolid } from '../../common/world/Block'
+import { Block } from '../../common/world/Block'
 import { ClientWorld } from '../render/ClientWorld'
+import { Entity, EntityOptions } from '../../common/world/Entity'
+import { RaycastResult } from './raycast'
 
 export type PlayerOptions = {
   /** In m/s^2. */
@@ -14,44 +16,27 @@ export type PlayerOptions = {
   /** In 1/s. F = kv. */
   frictionCoeff: number
   /** In m. */
-  collisionRadius: number
-  /** In m. Distance above the camera. */
-  head: number
-  /** In m. Distance below the camera. */
-  feet: number
-  /**
-   * In m. Length to shrink player by when considering other axes (to avoid
-   * colliding with block boundaries due to rounding issues).
-   */
-  wiggleRoom: number
+  eyeHeight: number
+  /** In m. */
+  reach: number
 
   collisions: boolean
   flying: boolean
 }
 
-export class Player {
-  x = 0
-  y = 0
-  z = 16
-  xv = 0
-  yv = 0
-  zv = 0
-
-  world: ClientWorld
+export class Player extends Entity<ClientWorld> {
   camera = new Camera()
-  options: PlayerOptions
+  playerOptions: PlayerOptions
 
   #keys: Record<string, boolean> = {}
 
   constructor (
     world: ClientWorld,
-    { x, y, z, ...options }: PlayerOptions & Vector3
+    options: PlayerOptions & EntityOptions & Vector3
   ) {
-    this.world = world
-    this.x = x
-    this.y = y
-    this.z = z
-    this.options = options
+    super(world, options)
+    this.collisions = options.collisions
+    this.playerOptions = options
   }
 
   listen (element: HTMLElement): void {
@@ -63,10 +48,10 @@ export class Player {
       }
       this.#keys[e.key.toLowerCase()] = true
       if (e.key === 'c') {
-        this.options.collisions = !this.options.collisions
+        this.collisions = !this.collisions
       }
       if (e.key === 'f') {
-        this.options.flying = !this.options.flying
+        this.playerOptions.flying = !this.playerOptions.flying
       }
       if (document.pointerLockElement === element) {
         e.preventDefault()
@@ -87,10 +72,11 @@ export class Player {
     })
   }
 
-  move (elapsed: number): void {
+  doMovement (elapsed: number): void {
     const acceleration = {
-      x: this.xv * this.options.frictionCoeff,
-      z: this.zv * this.options.frictionCoeff
+      x: this.xv * this.playerOptions.frictionCoeff,
+      y: this.yv,
+      z: this.zv * this.playerOptions.frictionCoeff
     }
 
     const direction = { x: 0, z: 0 }
@@ -109,7 +95,7 @@ export class Player {
     const moving = direction.x !== 0 || direction.z !== 0
     if (moving) {
       const factor =
-        this.options.moveAccel / Math.hypot(direction.x, direction.z)
+        this.playerOptions.moveAccel / Math.hypot(direction.x, direction.z)
       // TODO: idk why yaw needs to be inverted
       acceleration.x +=
         factor *
@@ -121,145 +107,34 @@ export class Player {
           Math.cos(-this.camera.yaw) * direction.z)
     }
 
-    let yAccel = this.yv
-    if (this.options.flying) {
-      yAccel *= this.options.frictionCoeff
+    if (this.playerOptions.flying) {
+      acceleration.y *= this.playerOptions.frictionCoeff
       if (this.#keys[' ']) {
-        yAccel += this.options.moveAccel
+        acceleration.y += this.playerOptions.moveAccel
       }
       if (this.#keys.shift) {
-        yAccel -= this.options.moveAccel
+        acceleration.y -= this.playerOptions.moveAccel
       }
     } else {
-      yAccel = this.options.gravity
-      if (this.#keys[' ']) {
-        const y = Math.floor(
-          this.y - this.options.feet - this.options.wiggleRoom
-        )
-        checkGround: for (
-          let x = Math.floor(
-            this.x - this.options.collisionRadius + this.options.wiggleRoom
-          );
-          x <=
-          Math.floor(
-            this.x + this.options.collisionRadius - this.options.wiggleRoom
-          );
-          x++
-        ) {
-          for (
-            let z = Math.floor(
-              this.z - this.options.collisionRadius + this.options.wiggleRoom
-            );
-            z <=
-            Math.floor(
-              this.z + this.options.collisionRadius - this.options.wiggleRoom
-            );
-            z++
-          ) {
-            if (isSolid(this.world.getBlock({ x, y, z }))) {
-              this.yv = this.options.jumpVel
-              break checkGround
-            }
-          }
-        }
+      acceleration.y = this.playerOptions.gravity
+      if (this.#keys[' '] && this.onGround) {
+        this.yv = this.playerOptions.jumpVel
       }
     }
 
-    this.#moveAxis('x', acceleration.x, elapsed, moving)
-    this.#moveAxis('z', acceleration.z, elapsed, moving)
-    this.#moveAxis('y', yAccel, elapsed, this.#keys[' '] || this.#keys.shift)
+    this.move(elapsed, acceleration)
   }
 
-  #moveAxis (
-    axis: 'x' | 'y' | 'z',
-    acceleration: number,
-    time: number,
-    userMoving: boolean
-  ): void {
-    let endVel = this[`${axis}v`] + acceleration * time
-    if (
-      !userMoving &&
-      Math.sign(this[`${axis}v`]) !== Math.sign(endVel) &&
-      (this.options.flying || axis !== 'y')
-    ) {
-      // Friction has set velocity to 0
-      endVel = 0
-    }
-    // displacement = average speed * time
-    const avgSpeed = (this[`${axis}v`] + endVel) / 2
-    let displacement = avgSpeed * time
-    if (this.options.collisions) {
-      /** Inclusive ranges. */
-      const base: Record<'x' | 'y' | 'z', { min: number; max: number }> = {
-        x: {
-          min: Math.floor(
-            this.x - this.options.collisionRadius + this.options.wiggleRoom
-          ),
-          max: Math.floor(
-            this.x + this.options.collisionRadius - this.options.wiggleRoom
-          )
-        },
-        y: {
-          min: Math.floor(this.y - this.options.feet + this.options.wiggleRoom),
-          max: Math.floor(this.y + this.options.head - this.options.wiggleRoom)
-        },
-        z: {
-          min: Math.floor(
-            this.z - this.options.collisionRadius + this.options.wiggleRoom
-          ),
-          max: Math.floor(
-            this.z + this.options.collisionRadius - this.options.wiggleRoom
-          )
-        }
-      }
-      const offset =
-        axis === 'y'
-          ? displacement > 0
-            ? this.options.head
-            : this.options.feet
-          : this.options.collisionRadius
-      let block =
-        displacement > 0
-          ? Math.floor(this[axis] + offset)
-          : Math.floor(this[axis] - offset)
-      checkCollide: while (
-        displacement > 0
-          ? block <= this[axis] + offset + displacement
-          : block >= Math.floor(this[axis] - offset + displacement)
-      ) {
-        const range = { ...base, [axis]: { min: block, max: block } }
-        for (let x = range.x.min; x <= range.x.max; x++) {
-          for (let y = range.y.min; y <= range.y.max; y++) {
-            for (let z = range.z.min; z <= range.z.max; z++) {
-              if (isSolid(this.world.getBlock({ x, y, z }))) {
-                if (
-                  (displacement > 0 && endVel > 0) ||
-                  (displacement < 0 && endVel < 0)
-                ) {
-                  endVel = 0
-                }
-                displacement =
-                  (displacement > 0
-                    ? Math.max(block - offset, this[axis])
-                    : Math.min(block + 1 + offset, this[axis])) - this[axis]
-                break checkCollide
-              }
-            }
-          }
-        }
-        if (displacement > 0) {
-          block++
-        } else {
-          block--
-        }
-      }
-    }
-    this[axis] += displacement
-    this[`${axis}v`] = endVel
+  raycast (): RaycastResult | null {
+    return this.world.raycast(
+      { x: this.x, y: this.y + this.playerOptions.eyeHeight, z: this.z },
+      this.camera.getForward(),
+      this.playerOptions.reach
+    )
   }
 
-  interact (range: number): void {
-    const result = this.world.raycast(this, this.camera.getForward(), range)
+  interact (): void {
+    const result = this.raycast()
     if (!result) {
       return
     }
@@ -280,8 +155,8 @@ export class Player {
         this.x - this.options.collisionRadius < target.x + 1 &&
         target.z < this.z + this.options.collisionRadius &&
         this.z - this.options.collisionRadius < target.z + 1 &&
-        target.y < this.y + this.options.head &&
-        this.y - this.options.feet < target.y + 1
+        target.y < this.y + this.options.height &&
+        this.y < target.y + 1
       ) {
         return
       }
@@ -293,7 +168,11 @@ export class Player {
 
   getTransform (): Mat4 {
     return this.camera.transform(
-      mat4.translation<Float32Array>([this.x, this.y, this.z])
+      mat4.translation<Float32Array>([
+        this.x,
+        this.y + this.playerOptions.eyeHeight,
+        this.z
+      ])
     )
   }
 }

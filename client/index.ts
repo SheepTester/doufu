@@ -98,6 +98,7 @@ function ensureSubscribed (positions: Vector3[]) {
   }
 }
 
+const RANGE = 3
 const player = new Player(world, {
   x: 0,
   y: SIZE + 1.5,
@@ -108,11 +109,12 @@ const player = new Player(world, {
   jumpVel: 10,
   frictionCoeff: -5,
   collisionRadius: 0.3,
-  head: 0.2,
-  feet: 1.4,
+  height: 1.6,
+  eyeHeight: 1.4,
   wiggleRoom: 0.01,
-  collisions: true,
+  reach: (RANGE + 1) * Math.SQRT2 * SIZE,
 
+  collisions: true,
   flying: false
 })
 player.listen(canvas)
@@ -135,8 +137,6 @@ window.addEventListener('blur', () => {
   keys = {}
 })
 
-const RANGE = 3
-
 let lastTime = Date.now()
 let frameId: number | null = null
 const paint = () => {
@@ -144,8 +144,8 @@ const paint = () => {
   const elapsed = Math.min(now - lastTime, 100) / 1000
   lastTime = now
 
-  player.interact((RANGE + 1) * Math.SQRT2 * SIZE)
-  player.move(elapsed)
+  player.interact()
+  player.doMovement(elapsed)
 
   ensureSubscribed(
     Array.from({ length: RANGE * 2 + 1 }, (_, i) =>
@@ -174,7 +174,7 @@ const paint = () => {
       )
   )
 
-  const result = world.raycast(player, player.camera.getForward())
+  const result = player.raycast()
   if (result) {
     renderer.voxelOutlineEnabled = true
     renderer.outlineCommon.uniforms.transform.data(
@@ -206,3 +206,6 @@ renderer.models = await Model.fromBedrockModel(
   pancakeGeo,
   pancakeTexture
 )
+for (const model of renderer.models) {
+  model.setInstances([mat4.translation([1, 32, 1])])
+}
