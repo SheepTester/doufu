@@ -35,8 +35,14 @@ export class Server {
       switch (message.type) {
         case 'chunk-data': {
           const chunk = this.#world.ensure(message.chunk.position)
+          if (chunk.generationState.type === 'generated') {
+            throw new Error('Chunk was already generated.')
+          }
           chunk.data = message.chunk.data
-          chunk.generationState = 'generated'
+          for (const { position, block } of chunk.generationState.queue) {
+            chunk.set(position, block)
+          }
+          chunk.generationState = { type: 'generated' }
           chunk.broadcastUpdate()
           break
         }
@@ -73,11 +79,13 @@ export class Server {
         setInterval(() => {
           const block = i++ % 2 === 0 ? Block.WHITE : Block.AIR
           const { chunk } = this.#world.setBlock({ x: 1, y: 30, z: 1 }, block)
-          for (const subscriber of chunk.subscribers) {
-            subscriber.send({
-              type: 'block-update',
-              blocks: [{ position: { x: 1, y: 30, z: 1 }, block }]
-            })
+          if (chunk) {
+            for (const subscriber of chunk?.subscribers) {
+              subscriber.send({
+                type: 'block-update',
+                blocks: [{ position: { x: 1, y: 30, z: 1 }, block }]
+              })
+            }
           }
         }, 500)
         break
@@ -88,10 +96,10 @@ export class Server {
           const chunk = this.#world.ensure(position)
           chunk.subscribers.add(conn)
           player.subscribed.add(chunk)
-          if (chunk.generationState === 'generated') {
+          if (chunk.generationState.type === 'generated') {
             chunksWithData.push(chunk.serialize())
-          } else if (chunk.generationState === 'ungenerated') {
-            chunk.generationState = 'generating'
+          } else if (chunk.generationState.type === 'ungenerated') {
+            chunk.generationState.type = 'generating'
             this.#generator.send({ type: 'generate', position: chunk.position })
           }
         }
@@ -103,7 +111,22 @@ export class Server {
       case 'block-update': {
         const subscribers = new Map<Connection, SerializedBlock[]>()
         for (const { position, block } of message.blocks) {
-          const { chunk } = this.#world.setBlock(position, block)
+          const {
+            chunkPos,
+            chunk = new ServerChunk(chunkPos),
+            local
+          } = this.#world.setBlock(position, block)
+          if (chunk.generationState.type !== 'generated') {
+            chunk.generationState.queue.push({ position: local, block })
+            if (chunk.generationState.type === 'ungenerated') {
+              chunk.generationState.type = 'generating'
+              this.#generator.send({
+                type: 'generate',
+                position: chunk.position
+              })
+            }
+            continue
+          }
           for (const subscriber of chunk.subscribers) {
             if (subscriber === conn) {
               continue

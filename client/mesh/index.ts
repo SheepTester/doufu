@@ -47,6 +47,9 @@ const connection = new Connection<MeshWorkerRequest, MeshWorkerMessage>({
       case 'block-update': {
         for (const { position, block } of message.blocks) {
           const { chunk, local } = world.setBlock(position, block)
+          if (!chunk) {
+            break
+          }
           const part = {
             x: local.x < 1 ? -1 : local.x < SIZE - 1 ? 0 : 1,
             y: local.y < 1 ? -1 : local.y < SIZE - 1 ? 0 : 1,

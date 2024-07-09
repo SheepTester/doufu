@@ -81,25 +81,27 @@ export class World<T extends Chunk> {
     return isSolid(this.getBlock(block))
   }
 
-  /** Returns the chunk that the block was set in. */
-  setBlock ({ x, y, z }: Vector3, block: Block): { chunk: T; local: Vector3 } {
+  /**
+   * Returns the chunk that the block was set in. Does nothing if the chunk
+   * doesn't exist.
+   */
+  setBlock (
+    { x, y, z }: Vector3,
+    block: Block
+  ): { chunk?: T; chunkPos: Vector3; local: Vector3 } {
     const chunkPos = {
       x: Math.floor(x / SIZE),
       y: Math.floor(y / SIZE),
       z: Math.floor(z / SIZE)
     }
-    let chunk = this.lookup(chunkPos)
-    if (!chunk) {
-      chunk = this.options.createChunk(chunkPos)
-      this.register(chunk)
-    }
     const local = {
-      x: x - chunk.position.x * SIZE,
-      y: y - chunk.position.y * SIZE,
-      z: z - chunk.position.z * SIZE
+      x: x - chunkPos.x * SIZE,
+      y: y - chunkPos.y * SIZE,
+      z: z - chunkPos.z * SIZE
     }
-    chunk.set(local, block)
-    return { chunk, local }
+    const chunk = this.lookup(chunkPos) ?? undefined
+    chunk?.set(local, block)
+    return { chunk, chunkPos, local }
   }
 
   chunks (): T[] {
