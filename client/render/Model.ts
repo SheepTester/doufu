@@ -2,11 +2,11 @@
 // https://github.com/JannisX11/blockbench/blob/master/js/io/formats/bedrock.js#L592
 
 import { mat4, Mat4 } from 'wgpu-matrix'
+import { merge } from '../../common/buffer'
 import { Vector3 } from '../../common/Vector3'
 import { Context, loadTexture, Mesh, Texture } from './Context'
 import { Group } from './Group'
 import { Uniform } from './Uniform'
-import { merge } from '../../common/buffer'
 
 /** `number[]` part is to satisfy TypeScript JSON */
 export type Vec3 = [x: number, y: number, z: number] | number[]
@@ -210,79 +210,79 @@ export class Model implements Mesh {
     }
     this.#instanceCount = matrices.length
   }
+}
 
-  static async fromBedrockModel (
-    context: Context,
-    model: BedrockModel,
-    texturePath: string
-  ): Promise<Model[]> {
-    const texture = await loadTexture(context.device, texturePath, false)
-    return model['minecraft:geometry'].map(
-      ({ description: { texture_width, texture_height }, bones }) =>
-        new Model(
-          context,
-          texture,
-          texture_width,
-          texture_height,
-          bones.map(({ pivot: [x, y, z], cubes = [] }): Bone => {
-            return {
-              pivot: { x, y, z },
-              cubes: cubes.map(
-                ({
-                  origin,
-                  size,
-                  rotation = [0, 0, 0],
-                  pivot = [0, 0, 0],
-                  uv: [u, v]
-                }): Cube => {
-                  const transform = mat4.identity()
-                  mat4.scale(transform, [1 / 16, 1 / 16, 1 / 16], transform)
-                  mat4.translate(transform, pivot, transform)
-                  mat4.rotateZ(
-                    transform,
-                    rotation[2] * (Math.PI / 180),
-                    transform
-                  )
-                  mat4.rotateY(
-                    transform,
-                    rotation[1] * (Math.PI / 180),
-                    transform
-                  )
-                  mat4.rotateX(
-                    transform,
-                    rotation[0] * (Math.PI / 180),
-                    transform
-                  )
-                  mat4.translate(
-                    transform,
-                    [-pivot[0], -pivot[1], -pivot[2]],
-                    transform
-                  )
-                  mat4.translate(transform, origin, transform)
-                  mat4.scale(transform, size, transform)
-                  const group = new Group(
-                    context.device,
-                    context.modelCommon.pipeline,
-                    2,
-                    {
-                      cubeTransform: new Uniform(context.device, 0, 4 * 4 * 4),
-                      uv: new Uniform(context.device, 1, 4 * 2),
-                      cubeSize: new Uniform(context.device, 2, 4 * 3)
-                    }
-                  )
-                  group.uniforms.cubeTransform.data(transform)
-                  group.uniforms.uv.data(new Float32Array([u, v]))
-                  group.uniforms.cubeSize.data(new Float32Array(size))
-                  return {
-                    group,
-                    uv: [u, v],
-                    size: { x: size[0], y: size[1], z: size[2] }
+export async function fromBedrockModel (
+  context: Context,
+  model: BedrockModel,
+  texturePath: string
+): Promise<Model[]> {
+  const texture = await loadTexture(context.device, texturePath, false)
+  return model['minecraft:geometry'].map(
+    ({ description: { texture_width, texture_height }, bones }) =>
+      new Model(
+        context,
+        texture,
+        texture_width,
+        texture_height,
+        bones.map(({ pivot: [x, y, z], cubes = [] }): Bone => {
+          return {
+            pivot: { x, y, z },
+            cubes: cubes.map(
+              ({
+                origin,
+                size,
+                rotation = [0, 0, 0],
+                pivot = [0, 0, 0],
+                uv: [u, v]
+              }): Cube => {
+                const transform = mat4.identity()
+                mat4.scale(transform, [1 / 16, 1 / 16, 1 / 16], transform)
+                mat4.translate(transform, pivot, transform)
+                mat4.rotateZ(
+                  transform,
+                  rotation[2] * (Math.PI / 180),
+                  transform
+                )
+                mat4.rotateY(
+                  transform,
+                  rotation[1] * (Math.PI / 180),
+                  transform
+                )
+                mat4.rotateX(
+                  transform,
+                  rotation[0] * (Math.PI / 180),
+                  transform
+                )
+                mat4.translate(
+                  transform,
+                  [-pivot[0], -pivot[1], -pivot[2]],
+                  transform
+                )
+                mat4.translate(transform, origin, transform)
+                mat4.scale(transform, size, transform)
+                const group = new Group(
+                  context.device,
+                  context.modelCommon.pipeline,
+                  2,
+                  {
+                    cubeTransform: new Uniform(context.device, 0, 4 * 4 * 4),
+                    uv: new Uniform(context.device, 1, 4 * 2),
+                    cubeSize: new Uniform(context.device, 2, 4 * 3)
                   }
+                )
+                group.uniforms.cubeTransform.data(transform)
+                group.uniforms.uv.data(new Float32Array([u, v]))
+                group.uniforms.cubeSize.data(new Float32Array(size))
+                return {
+                  group,
+                  uv: [u, v],
+                  size: { x: size[0], y: size[1], z: size[2] }
                 }
-              )
-            }
-          })
-        )
-    )
-  }
+              }
+            )
+          }
+        })
+      )
+  )
 }
