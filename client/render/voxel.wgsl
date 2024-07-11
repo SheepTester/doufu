@@ -64,7 +64,15 @@ fn vertex_main(
 
     // Hardcoded for now
     const textures = array(
-        vec2(0.0, 1.0), vec2(1.0, 1.0), vec2(2.0, 1.0),
+        vec2(0.0, 3.0), // (0) STONE
+        vec2(1.0, 3.0), // (1) GLASS
+        vec2(2.0, 3.0), // (2) WHITE
+        vec2(3.0, 3.0), // (3) DIRT
+        vec2(0.0, 2.0), // (4) GRASS side
+        vec2(1.0, 2.0), // (5) GRASS top
+        vec2(2.0, 2.0), // (6) LOG side
+        vec2(3.0, 2.0), // (7) LOG ends
+        vec2(0.0, 1.0), // (8) LEAVES
     );
     let texture_id = input[4];
 

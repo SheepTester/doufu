@@ -42,9 +42,14 @@ function generateChunk (position: Vector3): Chunk {
           (BASE_AMPLITUDE / 8) +
         20
       for (let y = 0; y < SIZE; y++) {
-        if (y + position.y * SIZE <= elevation) {
+        const globalY = y + position.y * SIZE
+        if (globalY <= elevation - 4) {
           chunk.set({ x, y, z }, Block.STONE)
-        } else if (y + position.y * SIZE <= 10) {
+        } else if (globalY <= elevation - 1) {
+          chunk.set({ x, y, z }, Block.DIRT)
+        } else if (globalY <= elevation) {
+          chunk.set({ x, y, z }, Block.GRASS)
+        } else if (globalY <= 10) {
           chunk.set({ x, y, z }, Block.GLASS)
         }
       }

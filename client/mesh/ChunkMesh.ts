@@ -1,24 +1,7 @@
 import { Vector3 } from '../../common/Vector3'
 import { getTexture, isOpaque } from '../../common/world/Block'
 import { Chunk, neighborIndex, SIZE } from '../../common/world/Chunk'
-
-const enum FaceDirection {
-  BACK = 0,
-  FRONT = 1,
-  LEFT = 2,
-  RIGHT = 3,
-  BOTTOM = 4,
-  TOP = 5
-}
-
-const directions = [
-  { face: FaceDirection.BACK, normal: { x: 0, y: 0, z: -1 } },
-  { face: FaceDirection.FRONT, normal: { x: 0, y: 0, z: 1 } },
-  { face: FaceDirection.LEFT, normal: { x: -1, y: 0, z: 0 } },
-  { face: FaceDirection.RIGHT, normal: { x: 1, y: 0, z: 0 } },
-  { face: FaceDirection.BOTTOM, normal: { x: 0, y: -1, z: 0 } },
-  { face: FaceDirection.TOP, normal: { x: 0, y: 1, z: 0 } }
-]
+import { directions } from '../../common/world/Face'
 
 const cacheBounds = [
   { min: 0, max: 1 },
@@ -54,11 +37,14 @@ export class ChunkMesh extends Chunk {
         for (let y = yBounds.min; y < yBounds.max; y++) {
           for (let z = zBounds.min; z < zBounds.max; z++) {
             const block = this.get({ x, y, z })
-            const texture = getTexture(block)
-            if (block === null || texture === null) {
+            if (block === null) {
               continue
             }
             for (const { face, normal } of directions) {
+              const texture = getTexture(block, face)
+              if (texture === null) {
+                continue
+              }
               const neighbor = getNeighbor({
                 x: x + normal.x,
                 y: y + normal.y,

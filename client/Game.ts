@@ -17,7 +17,7 @@ import { Context, createContext } from './render/Context'
 // TEMP
 import pancakeGeo from './asset/pancake.geo.json'
 import pancakeTexture from './asset/pancake.png'
-import { fromBedrockModel, Model } from './render/Model'
+import { fromBedrockModel } from './render/Model'
 
 declare const USE_WS: string | boolean
 
@@ -54,11 +54,7 @@ export class Game {
   #context: Context
   #canvas: HTMLCanvasElement
   #canvasContext: GPUCanvasContext
-  #server = new Connection<ServerMessage, ClientMessage>({
-    onMessage: this.#handleMessage,
-    encode,
-    decode: decodeServer
-  })
+  #server: Connection<ServerMessage, ClientMessage>
 
   #keys: Record<string, boolean> = {}
 
@@ -77,6 +73,11 @@ export class Game {
     this.#context = context
     this.#canvas = canvas
     this.#canvasContext = canvasContext
+    this.#server = new Connection<ServerMessage, ClientMessage>({
+      onMessage: this.#handleMessage,
+      encode,
+      decode: decodeServer
+    })
     this.#world = new ClientWorld(this.#context, this.#server)
     this.#player = new Player(this.#world, {
       x: 0,
@@ -139,7 +140,7 @@ export class Game {
     }
   }
 
-  #handleMessage (message: ServerMessage): void {
+  #handleMessage = (message: ServerMessage) => {
     switch (message.type) {
       case 'pong': {
         this.#server.send({ type: 'ping' })
