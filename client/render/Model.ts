@@ -217,7 +217,9 @@ export async function fromBedrockModel (
   model: BedrockModel,
   texturePath: string
 ): Promise<Model[]> {
-  const texture = await loadTexture(context.device, texturePath, false)
+  const texture = await loadTexture(context.device, texturePath, {
+    flipY: false
+  })
   return model['minecraft:geometry'].map(
     ({ description: { texture_width, texture_height }, bones }) =>
       new Model(

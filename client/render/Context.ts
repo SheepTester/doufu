@@ -1,6 +1,7 @@
 import { Mat4, mat4 } from 'wgpu-matrix'
 import atlasPath from '../asset/atlas.png'
 import { Group } from './Group'
+import mipmapCode from './mipmap.wgsl'
 import { Model } from './Model'
 import modelCode from './model-cube.wgsl'
 import postprocessCode from './postprocess.wgsl'
@@ -89,8 +90,57 @@ export async function createContext (
 
   const { texture, sampler, width, height } = await loadTexture(
     device,
-    atlasPath
+    atlasPath,
+    {
+      // 5 levels (inclusive) from 16x16 to 1x1 per block
+      mipmapLevels: 5
+    }
   )
+  const mipmapModule = await compile(device, mipmapCode, 'texture mipmapper')
+  const mipmapPipeline = device.createRenderPipeline({
+    label: 'mip level generator pipeline',
+    layout: 'auto',
+    vertex: { module: mipmapModule },
+    fragment: { module: mipmapModule, targets: [{ format: texture.format }] }
+  })
+  const mipmapUniforms = new Group(device, mipmapPipeline, 0, {
+    sampler: { binding: 0, resource: sampler },
+    texture: {
+      binding: 1,
+      resource: texture.createView({ baseMipLevel: 0, mipLevelCount: 1 })
+    },
+    outputSize: new Uniform(device, 2, 2 * 4)
+  })
+  const mipmapEncoder = device.createCommandEncoder({
+    label: 'mipmap generator encoder'
+  })
+  for (let i = 0; i < 4; i++) {
+    if (i > 0) {
+      mipmapUniforms.uniforms.texture.resource = texture.createView({
+        baseMipLevel: i,
+        mipLevelCount: 1
+      })
+    }
+    mipmapUniforms.uniforms.outputSize.data(
+      new Float32Array([width >> (i + 1), height >> (i + 1)])
+    )
+    const pass = mipmapEncoder.beginRenderPass({
+      label: 'mipmap render pass',
+      colorAttachments: [
+        {
+          view: texture.createView({ baseMipLevel: i + 1, mipLevelCount: 1 }),
+          loadOp: 'clear',
+          storeOp: 'store'
+        }
+      ]
+    })
+    pass.setPipeline(mipmapPipeline)
+    pass.setBindGroup(0, mipmapUniforms.group)
+    pass.draw(6)
+    pass.end()
+  }
+  device.queue.submit([mipmapEncoder.finish()])
+
   const voxelCommon = new Group(device, voxelPipeline, 0, {
     perspective: new Uniform(device, 0, 4 * 4 * 4),
     camera: new Uniform(device, 1, 4 * 4 * 4),
@@ -474,10 +524,14 @@ async function compile (
   return module
 }
 
+export type TextureOptions = {
+  flipY: boolean
+  mipmapLevels: number
+}
 export async function loadTexture (
   device: GPUDevice,
   image: string | ImageBitmap,
-  flipY = true
+  { flipY = true, mipmapLevels }: Partial<TextureOptions> = {}
 ): Promise<Texture> {
   const source =
     typeof image === 'string'
@@ -490,6 +544,7 @@ export async function loadTexture (
   const texture = device.createTexture({
     label: 'texture',
     format: 'rgba8unorm',
+    mipLevelCount: mipmapLevels,
     size: [source.width, source.height],
     usage:
       GPUTextureUsage.TEXTURE_BINDING |
