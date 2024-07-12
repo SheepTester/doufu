@@ -44,10 +44,7 @@ fn fragment_main(vertex: VertexOutput) -> @location(0) vec4<f32> {
         }
     }
     if (total > 0.0) {
-        // TEMP
-        let x = sum / total;
-        let w = vertex.tex_coord;
-        return vec4(output_size.x / 8.0, x.gb * 0.5, sum_alpha / 4.0);
+        return vec4(sum / total, sum_alpha / 4.0);
     } else {
         // If every texel was transparent, then return a transparent texel
         return vec4(0.0);

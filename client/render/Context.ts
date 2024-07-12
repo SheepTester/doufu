@@ -103,24 +103,18 @@ export async function createContext (
     vertex: { module: mipmapModule },
     fragment: { module: mipmapModule, targets: [{ format: texture.format }] }
   })
-  const mipmapUniforms = new Group(device, mipmapPipeline, 0, {
-    sampler: { binding: 0, resource: sampler },
-    texture: {
-      binding: 1,
-      resource: texture.createView({ baseMipLevel: 0, mipLevelCount: 1 })
-    },
-    outputSize: new Uniform(device, 2, 2 * 4)
-  })
   const mipmapEncoder = device.createCommandEncoder({
     label: 'mipmap generator encoder'
   })
   for (let i = 0; i < 4; i++) {
-    if (i > 0) {
-      mipmapUniforms.uniforms.texture.resource = texture.createView({
-        baseMipLevel: i,
-        mipLevelCount: 1
-      })
-    }
+    const mipmapUniforms = new Group(device, mipmapPipeline, 0, {
+      sampler: { binding: 0, resource: sampler },
+      texture: {
+        binding: 1,
+        resource: texture.createView({ baseMipLevel: i, mipLevelCount: 1 })
+      },
+      outputSize: new Uniform(device, 2, 2 * 4)
+    })
     mipmapUniforms.uniforms.outputSize.data(
       new Float32Array([width >> (i + 1), height >> (i + 1)])
     )
@@ -144,7 +138,10 @@ export async function createContext (
   const voxelCommon = new Group(device, voxelPipeline, 0, {
     perspective: new Uniform(device, 0, 4 * 4 * 4),
     camera: new Uniform(device, 1, 4 * 4 * 4),
-    sampler: { binding: 2, resource: sampler },
+    sampler: {
+      binding: 2,
+      resource: device.createSampler({ mipmapFilter: 'linear' })
+    },
     texture: { binding: 3, resource: texture.createView() },
     textureSize: new Uniform(device, 4, 4 * 2)
   })
