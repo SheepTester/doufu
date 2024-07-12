@@ -10,6 +10,7 @@ export type ServerMessage =
 export type ClientMessage =
   | { type: 'ping' }
   | { type: 'subscribe-chunks'; chunks: Vector3[] }
+  | { type: 'unsubscribe-chunks'; chunks: Vector3[] }
   | { type: 'block-update'; blocks: SerializedBlock[] }
   | { type: 'move'; position: Vector3; rotationY: number }
 

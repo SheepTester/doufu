@@ -9,3 +9,4 @@ export type MeshWorkerMessage = {
 export type MeshWorkerRequest =
   | { type: 'chunk-data'; chunks: SerializedChunk[] }
   | { type: 'block-update'; blocks: SerializedBlock[] }
+  | { type: 'forget'; chunk: Vector3 }

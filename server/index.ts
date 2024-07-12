@@ -108,6 +108,16 @@ export class Server {
         }
         break
       }
+      case 'unsubscribe-chunks': {
+        for (const position of message.chunks) {
+          const chunk = this.#world.lookup(position)
+          if (chunk) {
+            chunk.subscribers.delete(conn)
+            player.subscribed.delete(chunk)
+          }
+        }
+        break
+      }
       case 'block-update': {
         const subscribers = new Map<Connection, SerializedBlock[]>()
         for (const { position, block } of message.blocks) {

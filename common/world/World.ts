@@ -39,23 +39,28 @@ export class World<T extends Chunk> {
   }
 
   /** Gets a chunk by its chunk coordinates */
-  lookup (v: Vector3): T | null {
-    return this.#chunkMap[toKey(v)] ?? null
+  lookup (position: Vector3): T | null {
+    return this.#chunkMap[toKey(position)] ?? null
   }
 
   /**
    * Gets a chunk by its chunk coordinates. If the chunk doesn't exist, it'll
    * create a new chunk and register it.
    */
-  ensure (v: Vector3): T {
-    const chunk = this.#chunkMap[toKey(v)]
+  ensure (position: Vector3): T {
+    const chunk = this.#chunkMap[toKey(position)]
     if (chunk) {
       return chunk
     } else {
-      const chunk = this.options.createChunk(v)
+      const chunk = this.options.createChunk(position)
       this.register(chunk)
       return chunk
     }
+  }
+
+  /** Ensures that the chunk at the given position is deleted. */
+  delete (position: Vector3): void {
+    delete this.#chunkMap[toKey(position)]
   }
 
   /**
@@ -94,6 +99,10 @@ export class World<T extends Chunk> {
     return { chunk, chunkPos, local }
   }
 
+  /**
+   * @returns The array is not live, so it's safe to remove chunks while
+   * iterating over `chunks()`.
+   */
   chunks (): T[] {
     return Object.values(this.#chunkMap)
   }

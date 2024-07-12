@@ -48,6 +48,11 @@ export class ClientWorld extends World<ClientChunk> {
     this.#meshWorker.connectWorker('./client/mesh/index.js')
   }
 
+  delete (chunk: Vector3): void {
+    super.delete(chunk)
+    this.#meshWorker.send({ type: 'forget', chunk })
+  }
+
   setChunks (chunks: SerializedChunk[]): void {
     this.#meshWorker.send({ type: 'chunk-data', chunks })
     for (const { position, data } of chunks) {

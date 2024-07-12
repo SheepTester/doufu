@@ -5,7 +5,7 @@ import {
   encode,
   ServerMessage
 } from '../common/message'
-import { toArray, Vector3 } from '../common/Vector3'
+import { map, map2, reduce, toArray, Vector3 } from '../common/Vector3'
 import { SIZE } from '../common/world/Chunk'
 import { Player } from './control/Player'
 import { handleError } from './debug/error'
@@ -21,9 +21,17 @@ import { fromBedrockModel } from './render/Model'
 
 declare const USE_WS: string | boolean
 
-const RANGE = 3
+export type GameOptions = {
+  /**
+   * Approximate radius to load new chunks in, in chunks. Checks if the middle
+   * of the chunk is `loadRange * SIZE` blocks away from the player.
+   *
+   * Chunks `(loadRange + 1)` chunks away get unloaded.
+   */
+  loadRange: number
+}
 
-export async function init (): Promise<Game> {
+export async function init (options: GameOptions): Promise<Game> {
   if (!navigator.gpu) {
     throw new TypeError('Your browser does not support WebGPU.')
   }
@@ -47,10 +55,12 @@ export async function init (): Promise<Game> {
 
   renderer.models = await fromBedrockModel(renderer, pancakeGeo, pancakeTexture)
 
-  return new Game(renderer, canvas, context)
+  return new Game(renderer, canvas, context, options)
 }
 
 export class Game {
+  #options: GameOptions
+
   #context: Context
   #canvas: HTMLCanvasElement
   #canvasContext: GPUCanvasContext
@@ -68,11 +78,13 @@ export class Game {
   constructor (
     context: Context,
     canvas: HTMLCanvasElement,
-    canvasContext: GPUCanvasContext
+    canvasContext: GPUCanvasContext,
+    options: GameOptions
   ) {
     this.#context = context
     this.#canvas = canvas
     this.#canvasContext = canvasContext
+    this.#options = options
     this.#server = new Connection<ServerMessage, ClientMessage>({
       onMessage: this.#handleMessage,
       encode,
@@ -80,9 +92,9 @@ export class Game {
     })
     this.#world = new ClientWorld(this.#context, this.#server)
     this.#player = new Player(this.#world, {
-      x: 0,
+      x: 0.5,
       y: SIZE + 1.5,
-      z: 0,
+      z: 0.5,
 
       moveAccel: 50,
       gravity: -30,
@@ -92,7 +104,7 @@ export class Game {
       height: 1.6,
       eyeHeight: 1.4,
       wiggleRoom: 0.01,
-      reach: (RANGE + 1) * Math.SQRT2 * SIZE,
+      reach: (this.#options.loadRange + 0.5) * SIZE,
 
       collisions: true,
       flying: false
@@ -155,13 +167,9 @@ export class Game {
         break
       }
       case 'entity-update': {
-        for (const {
-          id,
-          position: { x, y, z },
-          rotationY
-        } of message.entities) {
+        for (const { id, position, rotationY } of message.entities) {
           this.#entities[id] = mat4.rotateY(
-            mat4.translation([x, y, z]),
+            mat4.translation(toArray(position)),
             rotationY
           )
         }
@@ -176,20 +184,69 @@ export class Game {
     }
   }
 
-  /**
-   * Subscribes to chunks at the given positions. If a chunk is already
-   * subscribed, it does nothing.
-   */
-  #ensureSubscribed (positions: Vector3[]) {
-    const toSubscribe: Vector3[] = []
-    for (const position of positions) {
-      if (!this.#world.lookup(position)) {
-        this.#world.register(new ClientChunk(this.#context, position))
-        toSubscribe.push(position)
+  #updateSubscription () {
+    const toSubscribe: { chunk: Vector3; distance: number }[] = []
+    for (
+      let x = Math.floor(this.#player.x / SIZE - this.#options.loadRange);
+      x < Math.ceil(this.#player.x / SIZE + this.#options.loadRange);
+      x++
+    ) {
+      for (
+        let y = Math.floor(this.#player.y / SIZE - this.#options.loadRange);
+        y < Math.ceil(this.#player.y / SIZE + this.#options.loadRange);
+        y++
+      ) {
+        for (
+          let z = Math.floor(this.#player.z / SIZE - this.#options.loadRange);
+          z < Math.ceil(this.#player.z / SIZE + this.#options.loadRange);
+          z++
+        ) {
+          const position = { x, y, z }
+          // Whether the middle of the chunk is in the load range
+          const distance = reduce(
+            map2(
+              position,
+              this.#player,
+              (chunk, player) => chunk + 0.5 - player / SIZE
+            ),
+            Math.hypot
+          )
+          if (
+            distance <= this.#options.loadRange &&
+            !this.#world.lookup(position)
+          ) {
+            this.#world.register(new ClientChunk(this.#context, position))
+            toSubscribe.push({ chunk: position, distance })
+          }
+        }
       }
     }
     if (toSubscribe.length > 0) {
-      this.#server.send({ type: 'subscribe-chunks', chunks: toSubscribe })
+      this.#server.send({
+        type: 'subscribe-chunks',
+        chunks: toSubscribe
+          // Prioritize loading closest chunks first
+          .sort((a, b) => a.distance - b.distance)
+          .map(({ chunk }) => chunk)
+      })
+    }
+    const toUnload: Vector3[] = []
+    for (const chunk of this.#world.chunks()) {
+      const distance = reduce(
+        map2(
+          chunk.position,
+          this.#player,
+          (chunk, player) => chunk + 0.5 - player / SIZE
+        ),
+        Math.hypot
+      )
+      if (distance > this.#options.loadRange + 1) {
+        this.#world.delete(chunk.position)
+        toUnload.push(chunk.position)
+      }
+    }
+    if (toUnload.length > 0) {
+      this.#server.send({ type: 'unsubscribe-chunks', chunks: toUnload })
     }
   }
 
@@ -205,33 +262,7 @@ export class Game {
       position: { x: this.#player.x, y: this.#player.y, z: this.#player.z },
       rotationY: this.#player.camera.yaw
     })
-
-    this.#ensureSubscribed(
-      Array.from({ length: RANGE * 2 + 1 }, (_, i) =>
-        Array.from({ length: RANGE * 2 + 1 }, (_, j) =>
-          Array.from({ length: RANGE * 2 + 1 }, (_, k) => ({
-            x: Math.floor(this.#player.x / SIZE) + i - RANGE,
-            y: Math.floor(this.#player.y / SIZE) + j - RANGE,
-            z: Math.floor(this.#player.z / SIZE) + k - RANGE
-          }))
-        )
-      )
-        .flat(3)
-        // Prioritize loading closest chunks first
-        .sort(
-          (a, b) =>
-            Math.hypot(
-              a.x - this.#player.x / SIZE,
-              a.y - this.#player.y / SIZE,
-              a.z - this.#player.z / SIZE
-            ) -
-            Math.hypot(
-              b.x - this.#player.x / SIZE,
-              b.y - this.#player.y / SIZE,
-              b.z - this.#player.z / SIZE
-            )
-        )
-    )
+    this.#updateSubscription()
 
     const result = this.#player.raycast()
     if (result) {
