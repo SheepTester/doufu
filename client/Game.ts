@@ -5,7 +5,7 @@ import {
   encode,
   ServerMessage
 } from '../common/message'
-import { map, map2, reduce, toArray, Vector3 } from '../common/Vector3'
+import { length, map2, toArray, Vector3 } from '../common/Vector3'
 import { SIZE } from '../common/world/Chunk'
 import { Player } from './control/Player'
 import { handleError } from './debug/error'
@@ -203,13 +203,12 @@ export class Game {
         ) {
           const position = { x, y, z }
           // Whether the middle of the chunk is in the load range
-          const distance = reduce(
+          const distance = length(
             map2(
               position,
               this.#player,
               (chunk, player) => chunk + 0.5 - player / SIZE
-            ),
-            Math.hypot
+            )
           )
           if (
             distance <= this.#options.loadRange &&
@@ -232,13 +231,12 @@ export class Game {
     }
     const toUnload: Vector3[] = []
     for (const chunk of this.#world.chunks()) {
-      const distance = reduce(
+      const distance = length(
         map2(
           chunk.position,
           this.#player,
           (chunk, player) => chunk + 0.5 - player / SIZE
-        ),
-        Math.hypot
+        )
       )
       if (distance > this.#options.loadRange + 1) {
         this.#world.delete(chunk.position)

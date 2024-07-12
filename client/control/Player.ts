@@ -1,9 +1,9 @@
 import { mat4, Mat4 } from 'wgpu-matrix'
-import { add, Vector3 } from '../../common/Vector3'
-import { Camera } from './Camera'
+import { add, scale, Vector3 } from '../../common/Vector3'
 import { Block } from '../../common/world/Block'
-import { ClientWorld } from '../render/ClientWorld'
 import { Entity, EntityOptions } from '../../common/world/Entity'
+import { ClientWorld } from '../render/ClientWorld'
+import { Camera } from './Camera'
 import { RaycastResult } from './raycast'
 
 export type PlayerOptions = {
@@ -73,11 +73,14 @@ export class Player extends Entity<ClientWorld> {
   }
 
   doMovement (elapsed: number): void {
-    const acceleration = {
-      x: this.xv * this.playerOptions.frictionCoeff,
-      y: this.yv,
-      z: this.zv * this.playerOptions.frictionCoeff
-    }
+    const acceleration = scale(
+      {
+        x: this.xv,
+        y: this.playerOptions.flying ? this.yv : 0,
+        z: this.zv
+      },
+      this.playerOptions.frictionCoeff
+    )
 
     const direction = { x: 0, z: 0 }
     if (this.#keys.a || this.#keys.arrowleft) {
@@ -108,7 +111,6 @@ export class Player extends Entity<ClientWorld> {
     }
 
     if (this.playerOptions.flying) {
-      acceleration.y *= this.playerOptions.frictionCoeff
       if (this.#keys[' ']) {
         acceleration.y += this.playerOptions.moveAccel
       }
@@ -127,7 +129,7 @@ export class Player extends Entity<ClientWorld> {
 
   raycast (): RaycastResult | null {
     return this.world.raycast(
-      { x: this.x, y: this.y + this.playerOptions.eyeHeight, z: this.z },
+      add(this, { y: this.playerOptions.eyeHeight }),
       this.camera.getForward(),
       this.playerOptions.reach
     )

@@ -28,8 +28,11 @@ export function toArray ({
   return [x, y, z]
 }
 
-export function add (a: Vector3, b: Vector3): Vector3 {
-  return { x: a.x + b.x, y: a.y + b.y, z: a.z + b.z }
+export function add (
+  v: Vector3,
+  { x = 0, y = 0, z = 0 }: Partial<Vector3>
+): Vector3 {
+  return { x: v.x + x, y: v.y + y, z: v.z + z }
 }
 
 export function scale ({ x, y, z }: Vector3, factor: number): Vector3 {
@@ -87,6 +90,16 @@ export function reduce<T> (
   func: (x: number, y: number, z: number) => T
 ): T {
   return func(x, y, z)
+}
+
+export function length ({ x, y, z }: Vector3): number {
+  return Math.hypot(x, y, z)
+}
+
+/** Returns a zero vector for a zero vector */
+export function normalize ({ x, y, z }: Vector3): Vector3 {
+  const length = Math.hypot(x, y, z)
+  return length === 0 ? ZERO : { x: x / length, y: y / length, z: z / length }
 }
 
 export function sumComponents ({ x, y, z }: Vector3): number {

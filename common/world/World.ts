@@ -1,5 +1,15 @@
 import { raycast, RaycastResult } from '../../client/control/raycast'
-import { Vector3Key, toKey, Vector3, map, map2 } from '../Vector3'
+import {
+  Vector3Key,
+  toKey,
+  Vector3,
+  map,
+  map2,
+  neighbors,
+  add,
+  neighborIndex,
+  scale
+} from '../Vector3'
 import { Block, isSolid } from './Block'
 import { Chunk, SIZE } from './Chunk'
 
@@ -20,21 +30,13 @@ export class World<T extends Chunk> {
    */
   register (chunk: T): void {
     this.#chunkMap[toKey(chunk.position)] = chunk
-    for (let dx = -1; dx <= 1; dx++) {
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dz = -1; dz <= 1; dz++) {
-          const neighbor = this.lookup({
-            x: chunk.position.x + dx,
-            y: chunk.position.y + dy,
-            z: chunk.position.z + dz
-          })
-          if (!neighbor) {
-            continue
-          }
-          chunk.neighbors[((1 + dx) * 3 + 1 + dy) * 3 + 1 + dz] = neighbor
-          neighbor.neighbors[((1 - dx) * 3 + 1 - dy) * 3 + 1 - dz] = chunk
-        }
+    for (const offset of neighbors) {
+      const neighbor = this.lookup(add(chunk.position, offset))
+      if (!neighbor) {
+        continue
       }
+      chunk.neighbors[neighborIndex(offset)] = neighbor
+      neighbor.neighbors[neighborIndex(scale(offset, -1))] = chunk
     }
   }
 
