@@ -1,5 +1,5 @@
 import { mat4, Mat4 } from 'wgpu-matrix'
-import { add, scale, Vector3 } from '../../common/Vector3'
+import { add, normalize, scale, Vector3 } from '../../common/Vector3'
 import { Block } from '../../common/world/Block'
 import { Entity, EntityOptions } from '../../common/world/Entity'
 import { ClientWorld } from '../render/ClientWorld'
@@ -7,14 +7,22 @@ import { Camera } from './Camera'
 import { RaycastResult } from './raycast'
 
 export type PlayerOptions = {
-  /** In m/s^2. */
-  moveAccel: number
+  /** In m/s. Applied when you walk on the ground. */
+  moveVel: number
+  /** In m/s^2. Applied when you try walking in the air. */
+  moveAccelAir: number
+  /** In m/s^2. Applied when you try walking in the air. */
+  moveAccelFlying: number
   /** In m/s^2. */
   gravity: number
   /** In m/s. */
   jumpVel: number
-  /** In 1/s. F = kv. */
-  frictionCoeff: number
+  /** In m/s^2. Applied while walking on the ground. */
+  frictionGround: number
+  /** In 1/s. F = kv. Applied while falling. */
+  frictionCoeffAir: number
+  /** In 1/s. F = kv. Applied while flying. */
+  frictionCoeffFlying: number
   /** In m. */
   eyeHeight: number
   /** In m. */
@@ -73,14 +81,27 @@ export class Player extends Entity<ClientWorld> {
   }
 
   doMovement (elapsed: number): void {
-    const acceleration = scale(
-      {
-        x: this.xv,
-        y: this.playerOptions.flying ? this.yv : 0,
-        z: this.zv
-      },
-      this.playerOptions.frictionCoeff
-    )
+    const friction =
+      this.playerOptions.flying || !this.onGround
+        ? scale(
+            {
+              x: this.xv,
+              y: this.playerOptions.flying ? this.yv : 0,
+              z: this.zv
+            },
+            this.playerOptions.flying
+              ? this.playerOptions.frictionCoeffFlying
+              : this.playerOptions.frictionCoeffAir
+          )
+        : scale(
+            normalize({
+              x: -this.xv,
+              y: -this.playerOptions.flying ? this.yv : 0,
+              z: -this.zv
+            }),
+            this.playerOptions.frictionGround
+          )
+    const acceleration = { x: 0, y: 0, z: 0 }
 
     const direction = { x: 0, z: 0 }
     if (this.#keys.a || this.#keys.arrowleft) {
@@ -98,24 +119,38 @@ export class Player extends Entity<ClientWorld> {
     const moving = direction.x !== 0 || direction.z !== 0
     if (moving) {
       const factor =
-        this.playerOptions.moveAccel / Math.hypot(direction.x, direction.z)
+        (this.playerOptions.flying
+          ? this.playerOptions.moveAccelFlying
+          : this.onGround
+          ? this.playerOptions.moveVel
+          : this.playerOptions.moveAccelAir) /
+        Math.hypot(direction.x, direction.z)
       // TODO: idk why yaw needs to be inverted
-      acceleration.x +=
+      const movementX =
         factor *
         (Math.cos(-this.camera.yaw) * direction.x -
           Math.sin(-this.camera.yaw) * direction.z)
-      acceleration.z +=
+      const movementZ =
         factor *
         (Math.sin(-this.camera.yaw) * direction.x +
           Math.cos(-this.camera.yaw) * direction.z)
+      // In Minecraft, it seems you change direction instantly when on the
+      // ground
+      if (!this.playerOptions.flying && this.onGround) {
+        this.xv = movementX
+        this.zv = movementZ
+      } else {
+        acceleration.x += movementX
+        acceleration.z += movementZ
+      }
     }
 
     if (this.playerOptions.flying) {
       if (this.#keys[' ']) {
-        acceleration.y += this.playerOptions.moveAccel
+        acceleration.y += this.playerOptions.moveAccelFlying
       }
       if (this.#keys.shift) {
-        acceleration.y -= this.playerOptions.moveAccel
+        acceleration.y -= this.playerOptions.moveAccelFlying
       }
     } else {
       acceleration.y = this.playerOptions.gravity
@@ -124,7 +159,7 @@ export class Player extends Entity<ClientWorld> {
       }
     }
 
-    this.move(elapsed, acceleration)
+    this.move(elapsed, acceleration, friction)
   }
 
   raycast (): RaycastResult | null {

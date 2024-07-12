@@ -36,15 +36,20 @@ export class Entity<W extends World<Chunk> = World<Chunk>> {
     this.z = z
   }
 
-  move (elapsed: number, acceleration: Vector3): void {
-    this.#moveAxis('x', acceleration.x, elapsed)
-    this.#moveAxis('z', acceleration.z, elapsed)
-    this.#moveAxis('y', acceleration.y, elapsed)
+  move (elapsed: number, acceleration: Vector3, friction: Vector3): void {
+    this.#moveAxis('x', acceleration.x, friction.x, elapsed)
+    this.#moveAxis('z', acceleration.z, friction.z, elapsed)
+    this.#moveAxis('y', acceleration.y, friction.y, elapsed)
     this.onGround = this.#testGround()
   }
 
-  #moveAxis (axis: 'x' | 'y' | 'z', acceleration: number, time: number): void {
-    let endVel = this[`${axis}v`] + acceleration * time
+  #moveAxis (
+    axis: 'x' | 'y' | 'z',
+    acceleration: number,
+    friction: number,
+    time: number
+  ): void {
+    let endVel = this[`${axis}v`] + (acceleration + friction) * time
     if (
       acceleration === 0 &&
       Math.sign(this[`${axis}v`]) !== Math.sign(endVel)
