@@ -1,5 +1,5 @@
 import { merge } from './buffer'
-import { Vector3 } from './Vector3'
+import { fromArray, toArray, Vector3 } from './Vector3'
 import { Block } from './world/Block'
 
 export type ServerMessage =
@@ -38,10 +38,7 @@ export function encode (
       return new Int32Array([69])
     }
     case 'subscribe-chunks': {
-      return new Int32Array([
-        1,
-        ...message.chunks.flatMap(({ x, y, z }) => [x, y, z])
-      ])
+      return new Int32Array([1, ...message.chunks.flatMap(toArray)])
     }
     case 'chunk-data': {
       const chunks: number[] = []
@@ -72,12 +69,7 @@ export function encode (
     case 'move': {
       return merge([
         new Int32Array([3, 0]),
-        new Float64Array([
-          message.position.x,
-          message.position.y,
-          message.position.z,
-          message.rotationY
-        ])
+        new Float64Array([...toArray(message.position), message.rotationY])
       ])
     }
     case 'entity-update': {
@@ -132,11 +124,7 @@ export function decodeServer (buffer: ArrayBuffer): ServerMessage {
       const blocks: SerializedBlock[] = []
       for (let i = 1; i < view.length; i += 4) {
         blocks.push({
-          position: {
-            x: view[i],
-            y: view[i + 1],
-            z: view[i + 2]
-          },
+          position: fromArray(view.slice(i, i + 3)),
           block: view[i + 3]
         })
       }
@@ -177,11 +165,7 @@ export function decodeClient (buffer: ArrayBuffer): ClientMessage {
     case 1: {
       const chunks: Vector3[] = []
       for (let i = 1; i < view.length; i += 3) {
-        chunks.push({
-          x: view[i],
-          y: view[i + 1],
-          z: view[i + 2]
-        })
+        chunks.push(fromArray(view.slice(i, i + 3)))
       }
       return { type: 'subscribe-chunks', chunks }
     }
@@ -189,11 +173,7 @@ export function decodeClient (buffer: ArrayBuffer): ClientMessage {
       const blocks: SerializedBlock[] = []
       for (let i = 1; i < view.length; i += 4) {
         blocks.push({
-          position: {
-            x: view[i],
-            y: view[i + 1],
-            z: view[i + 2]
-          },
+          position: fromArray(view.slice(i, i + 3)),
           block: view[i + 3]
         })
       }
@@ -202,7 +182,7 @@ export function decodeClient (buffer: ArrayBuffer): ClientMessage {
     case 3: {
       return {
         type: 'move',
-        position: { x: floatView[1], y: floatView[2], z: floatView[3] },
+        position: fromArray(floatView.slice(1, 4)),
         rotationY: floatView[4]
       }
     }

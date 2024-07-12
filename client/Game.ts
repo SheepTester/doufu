@@ -5,7 +5,7 @@ import {
   encode,
   ServerMessage
 } from '../common/message'
-import { Vector3 } from '../common/Vector3'
+import { toArray, Vector3 } from '../common/Vector3'
 import { SIZE } from '../common/world/Chunk'
 import { Player } from './control/Player'
 import { handleError } from './debug/error'
@@ -237,9 +237,7 @@ export class Game {
     if (result) {
       this.#context.voxelOutlineEnabled = true
       this.#context.outlineCommon.uniforms.transform.data(
-        new Float32Array(
-          mat4.translation([result.block.x, result.block.y, result.block.z])
-        )
+        new Float32Array(mat4.translation(toArray(result.block)))
       )
     } else {
       this.#context.voxelOutlineEnabled = false

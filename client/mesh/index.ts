@@ -1,4 +1,5 @@
-import { neighborIndex, SIZE } from '../../common/world/Chunk'
+import { add, map, neighborIndex, neighbors } from '../../common/Vector3'
+import { SIZE } from '../../common/world/Chunk'
 import { World } from '../../common/world/World'
 import { Connection } from '../net/Connection'
 import { ChunkMesh, neighborAffectedParts } from './ChunkMesh'
@@ -10,7 +11,7 @@ const world = new World<ChunkMesh>({
 
 const dirty = new Set<ChunkMesh>()
 
-let timeoutId: number | undefined = undefined
+let timeoutId: ReturnType<typeof setTimeout> | undefined = undefined
 function remeshDirtyChunks () {
   clearTimeout(timeoutId)
   timeoutId = setTimeout(() => {
@@ -50,29 +51,26 @@ const connection = new Connection<MeshWorkerRequest, MeshWorkerMessage>({
           if (!chunk) {
             break
           }
-          const part = {
-            x: local.x < 1 ? -1 : local.x < SIZE - 1 ? 0 : 1,
-            y: local.y < 1 ? -1 : local.y < SIZE - 1 ? 0 : 1,
-            z: local.z < 1 ? -1 : local.z < SIZE - 1 ? 0 : 1
-          }
+          const part = map(local, local =>
+            local < 1 ? -1 : local < SIZE - 1 ? 0 : 1
+          )
           // Mark neighboring parts as dirty
-          // rp = "raw part" because it could be -2 or 2
-          for (const rpx of [part.x - 1, part.x, part.x + 1]) {
-            for (const rpy of [part.y - 1, part.y, part.y + 1]) {
-              for (const rpz of [part.z - 1, part.z, part.z + 1]) {
-                // n = neighbor, p = part
-                const [nx, px] =
-                  rpx === -2 ? [-1, 1] : rpx === 2 ? [1, -1] : [0, rpx]
-                const [ny, py] =
-                  rpy === -2 ? [-1, 1] : rpy === 2 ? [1, -1] : [0, rpy]
-                const [nz, pz] =
-                  rpz === -2 ? [-1, 1] : rpz === 2 ? [1, -1] : [0, rpz]
-                const neighbor = chunk.neighbors[neighborIndex(nx, ny, nz)]
-                if (neighbor instanceof ChunkMesh) {
-                  neighbor.cache[neighborIndex(px, py, pz)].dirty = true
-                  dirty.add(neighbor)
-                }
-              }
+          for (const offset of neighbors) {
+            // rp = "raw part" because it could be -2 or 2
+            const rawPart = add(part, offset)
+            const neighbor =
+              chunk.neighbors[
+                neighborIndex(
+                  map(rawPart, rp => (rp === -2 ? -1 : rp === 2 ? 1 : 0))
+                )
+              ]
+            if (neighbor instanceof ChunkMesh) {
+              neighbor.cache[
+                neighborIndex(
+                  map(rawPart, rp => (rp === -2 ? 1 : rp === 2 ? -1 : rp))
+                )
+              ].dirty = true
+              dirty.add(neighbor)
             }
           }
         }

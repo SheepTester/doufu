@@ -1,4 +1,12 @@
-import { Vector3 } from '../../common/Vector3'
+import {
+  axes,
+  Axis,
+  map,
+  map2,
+  map4,
+  reduce,
+  Vector3
+} from '../../common/Vector3'
 
 export type RaycastResult = {
   block: Vector3
@@ -19,38 +27,15 @@ export function * raycast<T> (
   maxDistance = 64
 ): Generator<RaycastResult> {
   let t = 0
-  const i = {
-    x: Math.floor(p.x),
-    y: Math.floor(p.y),
-    z: Math.floor(p.z)
-  }
-  const step = {
-    x: Math.sign(d.x),
-    y: Math.sign(d.y),
-    z: Math.sign(d.z)
-  }
+  const i = map(p, Math.floor)
+  const step = map(d, Math.sign)
   // d is already normalized
-  const tDelta = {
-    x: Math.abs(1 / d.x),
-    y: Math.abs(1 / d.y),
-    z: Math.abs(1 / d.z)
-  }
+  const tDelta = map(d, d => Math.abs(1 / d))
   // location of nearest voxel boundary, in units of t
-  const tMax = {
-    x:
-      tDelta.x < Infinity
-        ? tDelta.x * (step.x > 0 ? i.x + 1 - p.x : p.x - i.x)
-        : Infinity,
-    y:
-      tDelta.y < Infinity
-        ? tDelta.y * (step.y > 0 ? i.y + 1 - p.y : p.y - i.y)
-        : Infinity,
-    z:
-      tDelta.z < Infinity
-        ? tDelta.z * (step.z > 0 ? i.z + 1 - p.z : p.z - i.z)
-        : Infinity
-  }
-  let steppedIndex: 'x' | 'y' | 'z' | null = null
+  const tMax = map4(tDelta, step, i, p, (tDelta, step, i, p) =>
+    tDelta < Infinity ? tDelta * (step > 0 ? i + 1 - p : p - i) : Infinity
+  )
+  let steppedIndex: Axis | null = null
 
   // main loop along raycast vector
   while (t <= maxDistance) {
@@ -59,37 +44,21 @@ export function * raycast<T> (
     if (b) {
       yield {
         block: i,
-        position: { x: p.x + t * d.x, y: p.y + t * d.y, z: p.z + t * d.z },
-        normal: {
-          x: steppedIndex === 'x' ? -step.x : 0,
-          y: steppedIndex === 'y' ? -step.y : 0,
-          z: steppedIndex === 'z' ? -step.z : 0
-        }
+        position: map2(p, d, (p, d) => p + t * d),
+        normal: map(step, (step, axis) => (steppedIndex === axis ? -step : 0))
       }
     }
 
     // advance t to next nearest voxel boundary
-    switch (Math.min(tMax.x, tMax.y, tMax.z)) {
-      case tMax.x:
-        i.x += step.x
-        t = tMax.x
-        tMax.x += tDelta.x
-        steppedIndex = 'x'
+    const min = reduce(tMax, Math.min)
+    for (const axis of axes) {
+      if (tMax[axis] === min) {
+        i[axis] += step[axis]
+        t = tMax[axis]
+        tMax[axis] += tDelta[axis]
+        steppedIndex = axis
         break
-      case tMax.y:
-        i.y += step.y
-        t = tMax.y
-        tMax.y += tDelta.y
-        steppedIndex = 'y'
-        break
-      case tMax.z:
-        i.z += step.z
-        t = tMax.z
-        tMax.z += tDelta.z
-        steppedIndex = 'z'
-        break
-      default:
-        throw new Error('The minimum is none of these. ??')
+      }
     }
   }
 }

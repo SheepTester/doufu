@@ -1,5 +1,5 @@
 import { mat4 } from 'wgpu-matrix'
-import { toKey, Vector3 } from '../../common/Vector3'
+import { scale, toArray, toKey, Vector3 } from '../../common/Vector3'
 import { Chunk, SIZE } from '../../common/world/Chunk'
 import { Context, Mesh } from './Context'
 import { Group } from './Group'
@@ -20,11 +20,7 @@ export class ClientChunk extends Chunk implements Mesh {
       { transform: new Uniform(context.device, 0, 4 * 4 * 4) }
     )
     this.#chunkGroup.uniforms.transform.data(
-      mat4.translation<Float32Array>([
-        position.x * SIZE,
-        position.y * SIZE,
-        position.z * SIZE
-      ])
+      mat4.translation<Float32Array>(toArray(scale(position, SIZE)))
     )
   }
 

@@ -1,6 +1,16 @@
-import { Vector3 } from '../../common/Vector3'
+import {
+  add,
+  map,
+  map3,
+  MIDDLE,
+  neighborIndex,
+  neighbors,
+  scale,
+  sumComponents,
+  Vector3
+} from '../../common/Vector3'
 import { getTexture, isOpaque } from '../../common/world/Block'
-import { Chunk, neighborIndex, SIZE } from '../../common/world/Chunk'
+import { Chunk, SIZE } from '../../common/world/Chunk'
 import { directions } from '../../common/world/Face'
 
 const cacheBounds = [
@@ -31,12 +41,12 @@ export class ChunkMesh extends Chunk {
       const xBounds = cacheBounds[Math.floor(i / 9) % 3]
       const yBounds = cacheBounds[Math.floor(i / 3) % 3]
       const zBounds = cacheBounds[i % 3]
-      const getNeighbor =
-        i === neighborIndex(0, 0, 0) ? this.get : this.getWithNeighbor
+      const getNeighbor = i === MIDDLE ? this.get : this.getWithNeighbor
       for (let x = xBounds.min; x < xBounds.max; x++) {
         for (let y = yBounds.min; y < yBounds.max; y++) {
           for (let z = zBounds.min; z < zBounds.max; z++) {
-            const block = this.get({ x, y, z })
+            const position = { x, y, z }
+            const block = this.get(position)
             if (block === null) {
               continue
             }
@@ -45,11 +55,7 @@ export class ChunkMesh extends Chunk {
               if (texture === null) {
                 continue
               }
-              const neighbor = getNeighbor({
-                x: x + normal.x,
-                y: y + normal.y,
-                z: z + normal.z
-              })
+              const neighbor = getNeighbor(add(position, normal))
               if (
                 neighbor !== null &&
                 !isOpaque(neighbor) &&
@@ -63,11 +69,14 @@ export class ChunkMesh extends Chunk {
                     const corner = getFaceVertex(face, index)
                     const opaques =
                       +isOpaque(
-                        getNeighbor({
-                          x: x + (normal.x || (corner.x ? 1 : -1)),
-                          y: y + (normal.y || (corner.y ? 1 : -1)),
-                          z: z + (normal.z || (corner.z ? 1 : -1))
-                        })
+                        getNeighbor(
+                          map3(
+                            position,
+                            normal,
+                            corner,
+                            (p, n, c) => p + (n || (c ? 1 : -1))
+                          )
+                        )
                       ) +
                       (normal.x === 0
                         ? +isOpaque(
@@ -142,43 +151,45 @@ export const neighborAffectedParts: number[][] = Array.from(
   { length: 27 },
   () => []
 )
-for (const x of [-1, 0, 1]) {
-  for (const y of [-1, 0, 1]) {
-    for (const z of [-1, 0, 1]) {
-      const i = neighborIndex(x, y, z)
-      switch (Math.abs(x) + Math.abs(y) + Math.abs(z)) {
-        // Middle
-        case 0: {
-          continue
-        }
-        // Face
-        case 1: {
-          for (const a of [-1, 0, -1]) {
-            for (const b of [-1, 0, -1]) {
-              if (x) {
-                neighborAffectedParts[i].push(neighborIndex(-x, a, b))
-              } else if (y) {
-                neighborAffectedParts[i].push(neighborIndex(a, -y, b))
-              } else {
-                neighborAffectedParts[i].push(neighborIndex(a, b, -z))
-              }
-            }
-          }
-        }
-        // Edge
-        case 2: {
-          for (const a of [-1, 0, -1]) {
+for (const neighbor of neighbors) {
+  const i = neighborIndex(neighbor)
+  switch (sumComponents(map(neighbor, Math.abs))) {
+    // Middle
+    case 0: {
+      continue
+    }
+    // Face
+    case 1: {
+      for (const a of [-1, 0, -1]) {
+        for (const b of [-1, 0, -1]) {
+          if (neighbor.x) {
             neighborAffectedParts[i].push(
-              neighborIndex(-x || a, -y || a, -z || a)
+              neighborIndex({ x: -neighbor.x, y: a, z: b })
+            )
+          } else if (neighbor.y) {
+            neighborAffectedParts[i].push(
+              neighborIndex({ x: a, y: -neighbor.y, z: b })
+            )
+          } else {
+            neighborAffectedParts[i].push(
+              neighborIndex({ x: a, y: b, z: -neighbor.z })
             )
           }
         }
-        // Vertex
-        case 3: {
-          neighborAffectedParts[i].push(neighborIndex(-x, -y, -z))
-          break
-        }
       }
+    }
+    // Edge
+    case 2: {
+      for (const a of [-1, 0, -1]) {
+        neighborAffectedParts[i].push(
+          neighborIndex(map(neighbor, n => -n || a))
+        )
+      }
+    }
+    // Vertex
+    case 3: {
+      neighborAffectedParts[i].push(neighborIndex(scale(neighbor, -1)))
+      break
     }
   }
 }

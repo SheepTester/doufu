@@ -1,5 +1,5 @@
 import { mat4, Mat4 } from 'wgpu-matrix'
-import { Vector3 } from '../../common/Vector3'
+import { add, Vector3 } from '../../common/Vector3'
 import { Camera } from './Camera'
 import { Block } from '../../common/world/Block'
 import { ClientWorld } from '../render/ClientWorld'
@@ -145,11 +145,7 @@ export class Player extends Entity<ClientWorld> {
         true
       )
     } else if (this.#keys.mouse2 || this.#keys.r) {
-      const target = {
-        x: result.block.x + result.normal.x,
-        y: result.block.y + result.normal.y,
-        z: result.block.z + result.normal.z
-      }
+      const target = add(result.block, result.normal)
       if (
         target.x < this.x + this.options.collisionRadius &&
         this.x - this.options.collisionRadius < target.x + 1 &&

@@ -1,5 +1,5 @@
 import { Mat4, mat4, vec3 } from 'wgpu-matrix'
-import { Vector3 } from '../../common/Vector3'
+import { fromArray, Vector3 } from '../../common/Vector3'
 
 export class Camera {
   /** Head shake direction (rotation about y-axis) */
@@ -43,7 +43,6 @@ export class Camera {
 
   /** Normalized forward direction vector */
   getForward (): Vector3 {
-    const [x, y, z] = vec3.transformMat4Upper3x3([0, 0, -1], this.transform())
-    return { x, y, z }
+    return fromArray(vec3.transformMat4Upper3x3([0, 0, -1], this.transform()))
   }
 }

@@ -3,7 +3,7 @@
 
 import { mat4, Mat4 } from 'wgpu-matrix'
 import { merge } from '../../common/buffer'
-import { Vector3 } from '../../common/Vector3'
+import { fromArray, Vector3 } from '../../common/Vector3'
 import { Context, loadTexture, Mesh, Texture } from './Context'
 import { Group } from './Group'
 import { Uniform } from './Uniform'
@@ -277,7 +277,7 @@ export async function fromBedrockModel (
                 return {
                   group,
                   uv: [u, v],
-                  size: { x: size[0], y: size[1], z: size[2] }
+                  size: fromArray(size)
                 }
               }
             )

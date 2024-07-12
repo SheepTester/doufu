@@ -1,5 +1,5 @@
 import { raycast, RaycastResult } from '../../client/control/raycast'
-import { Vector3Key, toKey, Vector3 } from '../Vector3'
+import { Vector3Key, toKey, Vector3, map, map2 } from '../Vector3'
 import { Block, isSolid } from './Block'
 import { Chunk, SIZE } from './Chunk'
 
@@ -62,18 +62,12 @@ export class World<T extends Chunk> {
    * Looks up a block by its global coordinates. Returns `null` if the chunk
    * doesn't exist.
    */
-  getBlock ({ x, y, z }: Vector3): Block | null {
-    const chunk = this.lookup({
-      x: Math.floor(x / SIZE),
-      y: Math.floor(y / SIZE),
-      z: Math.floor(z / SIZE)
-    })
+  getBlock (position: Vector3): Block | null {
+    const chunk = this.lookup(map(position, n => Math.floor(n / SIZE)))
     return (
-      chunk?.get({
-        x: x - chunk.position.x * SIZE,
-        y: y - chunk.position.y * SIZE,
-        z: z - chunk.position.z * SIZE
-      }) ?? null
+      chunk?.get(
+        map2(position, chunk.position, (block, chunk) => block - chunk * SIZE)
+      ) ?? null
     )
   }
 
@@ -86,19 +80,15 @@ export class World<T extends Chunk> {
    * doesn't exist.
    */
   setBlock (
-    { x, y, z }: Vector3,
+    position: Vector3,
     block: Block
   ): { chunk?: T; chunkPos: Vector3; local: Vector3 } {
-    const chunkPos = {
-      x: Math.floor(x / SIZE),
-      y: Math.floor(y / SIZE),
-      z: Math.floor(z / SIZE)
-    }
-    const local = {
-      x: x - chunkPos.x * SIZE,
-      y: y - chunkPos.y * SIZE,
-      z: z - chunkPos.z * SIZE
-    }
+    const chunkPos = map(position, n => Math.floor(n / SIZE))
+    const local = map2(
+      position,
+      chunkPos,
+      (block, chunk) => block - chunk * SIZE
+    )
     const chunk = this.lookup(chunkPos) ?? undefined
     chunk?.set(local, block)
     return { chunk, chunkPos, local }

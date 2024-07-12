@@ -1,5 +1,5 @@
 import { SerializedChunk } from '../message'
-import { Vector3 } from '../Vector3'
+import { map, MIDDLE, neighborIndex, Vector3, ZERO } from '../Vector3'
 import { Block } from './Block'
 
 export const SIZE = 32
@@ -9,10 +9,13 @@ export class Chunk {
   data: Uint8Array
   neighbors: (Chunk | null)[] = Array.from({ length: 27 }, () => null)
 
-  constructor (position: Vector3, data = new Uint8Array(SIZE * SIZE * SIZE)) {
+  constructor (
+    position: Vector3 = ZERO,
+    data = new Uint8Array(SIZE * SIZE * SIZE)
+  ) {
     this.position = position
     this.data = data
-    this.neighbors[neighborIndex(0, 0, 0)] = this
+    this.neighbors[MIDDLE] = this
   }
 
   /**
@@ -36,17 +39,14 @@ export class Chunk {
    * chunk, the method will recursively search through adjacent chunks to find
    * it. If a chunk doesn't exist yet, this will return `null`.
    */
-  getWithNeighbor = ({ x, y, z }: Vector3): Block | null => {
-    const { coord: blockX, chunk: chunkX } = clampCoord(x)
-    const { coord: blockY, chunk: chunkY } = clampCoord(y)
-    const { coord: blockZ, chunk: chunkZ } = clampCoord(z)
-    return (
-      this.neighbors[neighborIndex(chunkX, chunkY, chunkZ)]?.get({
-        x: blockX,
-        y: blockY,
-        z: blockZ
-      }) ?? null
+  getWithNeighbor = (position: Vector3): Block | null => {
+    const block = map(position, coord =>
+      coord < 0 ? coord + SIZE : coord >= SIZE ? coord - SIZE : coord
     )
+    const chunk = map(position, coord =>
+      coord < 0 ? -1 : coord >= SIZE ? 1 : 0
+    )
+    return this.neighbors[neighborIndex(chunk)]?.get(block) ?? null
   }
 
   /** Make the chunk consist entirely of `block` */
@@ -57,18 +57,4 @@ export class Chunk {
   serialize (): SerializedChunk {
     return { position: this.position, data: this.data }
   }
-}
-
-function clampCoord (coord: number): { coord: number; chunk: number } {
-  if (coord < 0) {
-    return { coord: coord + SIZE, chunk: -1 }
-  } else if (coord >= SIZE) {
-    return { coord: coord - SIZE, chunk: 1 }
-  } else {
-    return { coord, chunk: 0 }
-  }
-}
-
-export function neighborIndex (x: number, y: number, z: number): number {
-  return ((x + 1) * 3 + y + 1) * 3 + z + 1
 }
