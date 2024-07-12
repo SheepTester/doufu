@@ -9,7 +9,7 @@ import {
   sumComponents,
   Vector3
 } from '../../common/Vector3'
-import { getTexture, isOpaque } from '../../common/world/Block'
+import { Block, getTexture, isOpaque, isSolid } from '../../common/world/Block'
 import { Chunk, SIZE } from '../../common/world/Chunk'
 import { directions } from '../../common/world/Face'
 
@@ -25,6 +25,19 @@ export class ChunkMesh extends Chunk {
     dirty: boolean
   }[] = Array.from({ length: 27 }, () => ({ faces: [], dirty: true }))
 
+  #isEntirelyAir = false
+  #isEntirelyOpaque = false
+
+  /**
+   * Recomputes whether the chunk is entirely air or entirely opaque. This way
+   * it doesn't need to be recomputed when the chunk gets remeshed due to a
+   * neighbor updating.
+   */
+  handleDataUpdate () {
+    this.#isEntirelyAir = this.data.every(block => block === Block.AIR)
+    this.#isEntirelyOpaque = this.data.every(block => isOpaque(block))
+  }
+
   markAllDirty () {
     for (const entry of this.cache) {
       entry.faces = []
@@ -32,12 +45,24 @@ export class ChunkMesh extends Chunk {
     }
   }
 
+  /**
+   * Assumes that at least one part of the chunk is dirty, i.e. a block has
+   * changed.
+   */
   generateMesh (): Uint8Array {
+    // Skip if chunk is entirely air
+    if (this.#isEntirelyAir) {
+      return new Uint8Array()
+    }
     for (const [i, entry] of this.cache.entries()) {
       if (!entry.dirty) {
         continue
       }
       entry.faces = []
+      // Skip the middle part if the chunk is entirely opaque.
+      if (i === MIDDLE && this.#isEntirelyOpaque) {
+        continue
+      }
       const xBounds = cacheBounds[Math.floor(i / 9) % 3]
       const yBounds = cacheBounds[Math.floor(i / 3) % 3]
       const zBounds = cacheBounds[i % 3]
@@ -47,7 +72,7 @@ export class ChunkMesh extends Chunk {
           for (let z = zBounds.min; z < zBounds.max; z++) {
             const position = { x, y, z }
             const block = this.get(position)
-            if (block === null) {
+            if (block === null || block === Block.AIR) {
               continue
             }
             for (const { face, normal } of directions) {

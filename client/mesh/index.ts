@@ -13,16 +13,25 @@ const dirty = new Set<ChunkMesh>()
 
 let timeoutId: ReturnType<typeof setTimeout> | undefined = undefined
 function remeshDirtyChunks () {
+  for (const chunk of dirty) {
+    const data = chunk.generateMesh()
+    connection.send({ type: 'mesh', position: chunk.position, data }, [
+      data.buffer
+    ])
+  }
+  dirty.clear()
+  timeoutId = undefined
+}
+function requestRemesh () {
   clearTimeout(timeoutId)
-  timeoutId = setTimeout(() => {
-    for (const chunk of dirty) {
-      const data = chunk.generateMesh()
-      connection.send({ type: 'mesh', position: chunk.position, data }, [
-        data.buffer
-      ])
-    }
-    dirty.clear()
-  }, 0)
+  if (dirty.size > 200) {
+    // Forcefully remesh chunks now so client can start rendering chunks. The
+    // smaller this limit is, the sooner we can get chunks loaded, but the more
+    // extra work we have to re-mesh chunk borders.
+    remeshDirtyChunks()
+  } else {
+    timeoutId = setTimeout(remeshDirtyChunks, 0)
+  }
 }
 
 const connection = new Connection<MeshWorkerRequest, MeshWorkerMessage>({
@@ -32,6 +41,7 @@ const connection = new Connection<MeshWorkerRequest, MeshWorkerMessage>({
         for (const { position, data } of message.chunks) {
           const chunk = world.ensure(position)
           chunk.data = data
+          chunk.handleDataUpdate()
           chunk.markAllDirty()
           for (const [i, neighbor] of chunk.neighbors.entries()) {
             if (neighbor instanceof ChunkMesh) {
@@ -42,7 +52,7 @@ const connection = new Connection<MeshWorkerRequest, MeshWorkerMessage>({
             }
           }
         }
-        remeshDirtyChunks()
+        requestRemesh()
         break
       }
       case 'block-update': {
@@ -51,6 +61,7 @@ const connection = new Connection<MeshWorkerRequest, MeshWorkerMessage>({
           if (!chunk) {
             break
           }
+          chunk.handleDataUpdate()
           const part = map(local, local =>
             local < 1 ? -1 : local < SIZE - 1 ? 0 : 1
           )
@@ -74,7 +85,7 @@ const connection = new Connection<MeshWorkerRequest, MeshWorkerMessage>({
             }
           }
         }
-        remeshDirtyChunks()
+        requestRemesh()
         break
       }
     }
