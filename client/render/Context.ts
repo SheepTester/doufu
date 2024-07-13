@@ -106,6 +106,7 @@ export async function createContext (
   const mipmapEncoder = device.createCommandEncoder({
     label: 'mipmap generator encoder'
   })
+  const mipmapGroups: Group<{}>[] = []
   for (let i = 0; i < 4; i++) {
     const mipmapUniforms = new Group(device, mipmapPipeline, 0, {
       sampler: { binding: 0, resource: sampler },
@@ -118,6 +119,7 @@ export async function createContext (
     mipmapUniforms.uniforms.outputSize.data(
       new Float32Array([width >> (i + 1), height >> (i + 1)])
     )
+    mipmapGroups.push(mipmapUniforms)
     const pass = mipmapEncoder.beginRenderPass({
       label: 'mipmap render pass',
       colorAttachments: [
@@ -134,6 +136,9 @@ export async function createContext (
     pass.end()
   }
   device.queue.submit([mipmapEncoder.finish()])
+  for (const group of mipmapGroups) {
+    group.destroy()
+  }
 
   const voxelCommon = new Group(device, voxelPipeline, 0, {
     perspective: new Uniform(device, 0, 4 * 4 * 4),

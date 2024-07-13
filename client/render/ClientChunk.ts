@@ -41,4 +41,10 @@ export class ClientChunk extends Chunk implements Mesh {
       pass.draw(6, this.#vertices.size / 8)
     }
   }
+
+  /** Cleans up `Uniform` buffers held by this chunk. */
+  destroy (): void {
+    this.#chunkGroup.destroy()
+    this.#vertices?.destroy()
+  }
 }

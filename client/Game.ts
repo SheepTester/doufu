@@ -156,6 +156,13 @@ export class Game {
     }
   }
 
+  stop () {
+    if (this.#frameId !== null) {
+      cancelAnimationFrame(this.#frameId)
+      this.#frameId = null
+    }
+  }
+
   #handleMessage = (message: ServerMessage) => {
     switch (message.type) {
       case 'pong': {
@@ -243,6 +250,7 @@ export class Game {
         )
       )
       if (distance > this.#options.loadRange + 1) {
+        chunk.destroy()
         this.#world.delete(chunk.position)
         toUnload.push(chunk.position)
       }

@@ -25,4 +25,13 @@ export class Group<U extends Record<string, Uniform | GPUBindGroupEntry>> {
     this.pipeline = pipeline
     this.uniforms = uniforms
   }
+
+  /** Destroys all the `Uniform` buffers in the group. */
+  destroy (): void {
+    for (const entry of Object.values(this.uniforms)) {
+      if (entry instanceof Uniform) {
+        entry.destroy()
+      }
+    }
+  }
 }

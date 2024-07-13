@@ -20,4 +20,8 @@ export class Uniform {
   data (data: BufferSource | SharedArrayBuffer, offset = 0): void {
     this.#device.queue.writeBuffer(this.#buffer, offset, data)
   }
+
+  destroy (): void {
+    this.#buffer.destroy()
+  }
 }
