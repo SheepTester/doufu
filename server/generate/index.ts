@@ -12,10 +12,13 @@ const elevationNoise1 = createNoise2D(Alea(SEED, 'elevationNoise1'))
 const elevationNoise2 = createNoise2D(Alea(SEED, 'elevationNoise2'))
 const elevationNoise3 = createNoise2D(Alea(SEED, 'elevationNoise3'))
 const elevationNoise4 = createNoise2D(Alea(SEED, 'elevationNoise4'))
+const treeChances = createNoise2D(Alea(SEED, 'treeChances'))
 const BASE_SCALE = 200
 const BASE_AMPLITUDE = 20
 
 function generateChunk (position: Vector3): Chunk {
+  const relativeSeaLevel = 10 - position.y * SIZE
+
   const chunk = new Chunk(position)
   for (let x = 0; x < SIZE; x++) {
     for (let z = 0; z < SIZE; z++) {
@@ -41,16 +44,28 @@ function generateChunk (position: Vector3): Chunk {
         ) *
           (BASE_AMPLITUDE / 8) +
         20
+      const relativeElevation = Math.floor(elevation) - position.y * SIZE
+      const rand = Alea(SEED, x, z)
+      const shouldSpawnTree =
+        rand.next() <
+        treeChances(
+          (position.x * SIZE + x) / 60,
+          (position.z * SIZE + z) / 60
+        ) *
+          0.05
       for (let y = 0; y < SIZE; y++) {
-        const globalY = y + position.y * SIZE
-        if (globalY <= elevation - 4) {
+        if (y <= relativeElevation - 4) {
           chunk.set({ x, y, z }, Block.STONE)
-        } else if (globalY <= elevation - 1) {
+        } else if (y <= relativeElevation - 1) {
           chunk.set({ x, y, z }, Block.DIRT)
-        } else if (globalY <= elevation) {
-          chunk.set({ x, y, z }, Block.GRASS)
-        } else if (globalY <= 10) {
+        } else if (y <= relativeElevation) {
+          chunk.set({ x, y, z }, shouldSpawnTree ? Block.DIRT : Block.GRASS)
+        } else if (y <= relativeSeaLevel) {
           chunk.set({ x, y, z }, Block.GLASS)
+        } else if (shouldSpawnTree && y <= relativeElevation + 1) {
+          chunk.set({ x, y, z }, Block.LOG)
+        } else if (shouldSpawnTree && y <= relativeElevation + 4) {
+          chunk.set({ x, y, z }, Block.LEAVES)
         }
       }
     }

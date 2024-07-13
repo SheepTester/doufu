@@ -9,7 +9,13 @@ import {
   sumComponents,
   Vector3
 } from '../../common/Vector3'
-import { Block, getTexture, isOpaque, isSolid } from '../../common/world/Block'
+import {
+  Block,
+  getTexture,
+  isOpaque,
+  isSolid,
+  showAdjacentFaces
+} from '../../common/world/Block'
 import { Chunk, SIZE } from '../../common/world/Chunk'
 import { directions } from '../../common/world/Face'
 
@@ -84,7 +90,7 @@ export class ChunkMesh extends Chunk {
               if (
                 neighbor !== null &&
                 !isOpaque(neighbor) &&
-                block !== neighbor
+                (block !== neighbor || showAdjacentFaces(block))
               ) {
                 let ao = 0
                 // Only apply AO on opaque blocks

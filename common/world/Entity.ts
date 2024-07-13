@@ -36,6 +36,9 @@ export class Entity<W extends World<Chunk> = World<Chunk>> {
     this.z = z
   }
 
+  /**
+   * @param elapsed in seconds
+   */
   move (elapsed: number, acceleration: Vector3, friction: Vector3): void {
     this.#moveAxis('x', acceleration.x, friction.x, elapsed)
     this.#moveAxis('z', acceleration.z, friction.z, elapsed)

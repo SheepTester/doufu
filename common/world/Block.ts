@@ -30,6 +30,14 @@ export function isOpaque (block: Block | null): boolean {
   return block !== Block.AIR && block !== Block.GLASS && block !== Block.LEAVES
 }
 
+/**
+ * Whether faces between adjacent blocks of the same type should still be
+ * rendered.
+ */
+export function showAdjacentFaces (block: Block | null): boolean {
+  return block === Block.LEAVES
+}
+
 /** Whether entities can collide with the block */
 export function isSolid (block: Block | null): boolean {
   return block !== Block.AIR
