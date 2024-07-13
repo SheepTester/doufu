@@ -28,7 +28,6 @@ export type ContextOptions = {
 
 export async function createContext (
   format: GPUTextureFormat,
-
   options: Partial<ContextOptions> = {}
 ): Promise<Context> {
   const adapter = await navigator.gpu.requestAdapter()
@@ -297,7 +296,7 @@ export class Context {
     this.modelCommon = modelCommon
     this.#postprocessCommon = postprocessCommon
     this.#options = options
-    this.#timestamp = new TimestampCollector(device)
+    this.#timestamp = options.onGpuTime ? new TimestampCollector(device) : null
   }
 
   async render (canvasTexture: GPUTexture, cameraTransform: Mat4) {
@@ -506,8 +505,9 @@ class TimestampCollector {
     if (this.#resultBuffer.mapState === 'unmapped') {
       await this.#resultBuffer.mapAsync(GPUMapMode.READ)
       const times = new BigInt64Array(this.#resultBuffer.getMappedRange())
+      const delta = times[1] - times[0]
       this.#resultBuffer.unmap()
-      return times[1] - times[0]
+      return delta
     } else {
       return null
     }

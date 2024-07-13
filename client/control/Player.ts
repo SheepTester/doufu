@@ -55,6 +55,11 @@ export class Player extends Entity<ClientWorld> {
     this.camera.pitch += this.input.camera.pitch
     this.camera.roll += this.input.camera.roll
     this.input.resetCamera()
+    if (this.camera.pitch > Math.PI / 2) {
+      this.camera.pitch = Math.PI / 2
+    } else if (this.camera.pitch < -Math.PI / 2) {
+      this.camera.pitch = -Math.PI / 2
+    }
 
     if (this.input.keys.toggleCollisions && !this.prevKeys.toggleCollisions) {
       this.collisions = !this.collisions

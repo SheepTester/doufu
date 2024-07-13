@@ -17,6 +17,40 @@
     <canvas id="canvas"></canvas>
     <div class="center"></div>
     <pre id="error" class="no-error"></pre>
-    <pre id="perf"></pre>
+    <div class="perf" id="perf">
+      <div class="measure">
+        <div>GPU</div>
+        <svg width="300" height="40" xmlns="http://www.w3.org/2000/svg">
+          <path d="M 0 10 V 30 M 0 20 H 300 M 300 10 V 30" />
+          <path id="gpu-box" />
+        </svg>
+        <pre id="gpu-nums"></pre>
+        <table>
+          <tr id="gpu-fps"></tr>
+        </table>
+      </div>
+      <div class="measure">
+        <div>Frame</div>
+        <svg width="300" height="40" xmlns="http://www.w3.org/2000/svg">
+          <path d="M 0 10 V 30 M 0 20 H 300 M 300 10 V 30" />
+          <path id="frame-box" />
+        </svg>
+        <pre id="frame-nums"></pre>
+        <table>
+          <tr id="frame-fps"></tr>
+        </table>
+      </div>
+      <div class="measure">
+        <div>Mesh</div>
+        <svg width="300" height="40" xmlns="http://www.w3.org/2000/svg">
+          <path d="M 0 10 V 30 M 0 20 H 300 M 300 10 V 30" />
+          <path id="mesh-box" />
+        </svg>
+        <pre id="mesh-nums"></pre>
+        <table>
+          <tr id="mesh-fps"></tr>
+        </table>
+      </div>
+    </div>
   </body>
 </html>

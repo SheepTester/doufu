@@ -7,14 +7,13 @@ import {
 import { Vector3 } from '../../common/Vector3'
 import { Block } from '../../common/world/Block'
 import { World } from '../../common/world/World'
+import { submitSample } from '../debug/perf'
 import { MeshWorkerMessage, MeshWorkerRequest } from '../mesh/message'
 import { Connection } from '../net/Connection'
 import { ClientChunk } from './ClientChunk'
 import { Context } from './Context'
 
 export class ClientWorld extends World<ClientChunk> {
-  #context: Context
-
   #server: Connection<ServerMessage, ClientMessage>
   #meshWorker = new Connection<MeshWorkerMessage, MeshWorkerRequest>({
     onMessage: message => {
@@ -26,6 +25,10 @@ export class ClientWorld extends World<ClientChunk> {
           if (chunk) {
             chunk.handleFaces(message.data)
           }
+          break
+        }
+        case 'mesh-time': {
+          submitSample('mesh', message.time * 1e6)
           break
         }
         default: {
@@ -42,7 +45,6 @@ export class ClientWorld extends World<ClientChunk> {
     super({
       createChunk: position => new ClientChunk(context, position)
     })
-    this.#context = context
     this.#server = server
     this.#meshWorker.connectWorker('./client/mesh/index.js')
   }

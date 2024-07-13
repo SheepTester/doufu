@@ -61,4 +61,40 @@ body {
   top: 0;
   left: 0;
   margin: 10px;
+  font-family: sans-serif;
+  color: black;
+}
+.measure {
+  display: grid;
+  grid-template-areas:
+    'label plot table'
+    'label nums table';
+  align-items: center;
+
+  & > div {
+    grid-area: label;
+  }
+  & > svg {
+    grid-area: plot;
+
+    fill: none;
+    stroke: white;
+    stroke-width: 3px;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  & > pre {
+    grid-area: nums;
+  }
+  & > table {
+    grid-area: table;
+    border-collapse: collapse;
+
+    & td {
+      border: 1px solid currentColor;
+      width: 1.5em;
+      height: 1.5em;
+      text-align: right;
+    }
+  }
 }

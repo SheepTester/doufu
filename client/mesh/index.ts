@@ -13,6 +13,8 @@ const dirty = new Set<ChunkMesh>()
 
 let timeoutId: ReturnType<typeof setTimeout> | undefined = undefined
 function remeshDirtyChunks () {
+  const start = performance.now()
+  const dirtyCount = dirty.size
   for (const chunk of dirty) {
     const data = chunk.generateMesh()
     connection.send({ type: 'mesh', position: chunk.position, data }, [
@@ -21,6 +23,10 @@ function remeshDirtyChunks () {
   }
   dirty.clear()
   timeoutId = undefined
+  connection.send({
+    type: 'mesh-time',
+    time: (performance.now() - start) / dirtyCount
+  })
 }
 function requestRemesh () {
   clearTimeout(timeoutId)

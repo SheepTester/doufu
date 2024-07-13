@@ -19,6 +19,7 @@ import pancakeGeo from './asset/pancake.geo.json'
 import pancakeTexture from './asset/pancake.png'
 import { fromBedrockModel } from './render/Model'
 import { UserInput } from './control/input'
+import { submitSample } from './debug/perf'
 
 declare const USE_WS: string | boolean
 
@@ -46,7 +47,9 @@ export async function init (options: GameOptions): Promise<Game> {
   }
 
   const format = navigator.gpu.getPreferredCanvasFormat()
-  const renderer = await createContext(format)
+  const renderer = await createContext(format, {
+    onGpuTime: delta => submitSample('gpu', delta)
+  })
   renderer.device.addEventListener('uncapturederror', e => {
     if (e instanceof GPUUncapturedErrorEvent) {
       handleError(e.error)
@@ -263,6 +266,8 @@ export class Game {
   }
 
   #paint = () => {
+    const start = performance.now()
+
     const now = Date.now()
     const elapsed = Math.min(now - this.#lastTime, 100) / 1000
     this.#lastTime = now
@@ -299,5 +304,7 @@ export class Game {
         return Promise.reject(error)
       })
     this.#frameId = requestAnimationFrame(this.#paint)
+
+    submitSample('frame', (performance.now() - start) * 1e6)
   }
 }
