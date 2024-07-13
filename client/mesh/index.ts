@@ -1,4 +1,4 @@
-import { add, map, neighborIndex, neighbors } from '../../common/Vector3'
+import { add, map, neighborIndex, neighbors, ZERO } from '../../common/Vector3'
 import { SIZE } from '../../common/world/Chunk'
 import { World } from '../../common/world/World'
 import { Connection } from '../net/Connection'
@@ -61,6 +61,18 @@ const connection = new Connection<MeshWorkerRequest, MeshWorkerMessage>({
           }
         }
         requestRemesh()
+        break
+      }
+      case 'lone-chunk-data': {
+        const start = performance.now()
+        const data = new ChunkMesh(undefined, message.chunk).generateMesh()
+        connection.send({ type: 'lone-mesh', id: message.id, data }, [
+          data.buffer
+        ])
+        connection.send({
+          type: 'mesh-time',
+          time: performance.now() - start
+        })
         break
       }
       case 'block-update': {

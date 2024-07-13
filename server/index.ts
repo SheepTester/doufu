@@ -1,3 +1,4 @@
+import { mat4 } from 'wgpu-matrix'
 import { Connection as WorkerConnection } from '../client/net/Connection'
 import {
   ClientMessage,
@@ -55,6 +56,13 @@ export class Server {
 
   constructor () {
     this.#generator.connectWorker('./generate/index.js')
+
+    this.#world.floating[0] = new ServerChunk(0)
+    this.#world.floating[0].data.fill(Block.STONE)
+    this.#world.floating[0].transform = mat4.translate(
+      mat4.axisRotation([1, 2, 3], Math.PI / 6),
+      [16, 48, 0]
+    )
   }
 
   handleOpen (conn: Connection): void {
@@ -65,6 +73,14 @@ export class Server {
       rotationY: 0,
       subscribed: new Set()
     })
+    for (const chunk of Object.values(this.#world.floating)) {
+      conn.send({
+        type: 'floating-chunk',
+        id: chunk.id,
+        chunk: chunk.data,
+        transform: chunk.transform
+      })
+    }
   }
 
   handleMessage (conn: Connection, message: ClientMessage): void {

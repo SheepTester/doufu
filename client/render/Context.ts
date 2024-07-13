@@ -335,7 +335,7 @@ export class Context {
         },
         timestampWrites: this.#timestamp?.getTimestampWrites()
       })
-      const chunks = this.world?.chunks()
+      const chunks = this.world?.chunks(true)
       if (chunks && chunks.length > 0) {
         pass.setPipeline(this.voxelCommon.pipeline)
         pass.setBindGroup(0, this.voxelCommon.group)

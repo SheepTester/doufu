@@ -178,6 +178,14 @@ export class Game {
         this.#world.setChunks(message.chunks)
         break
       }
+      case 'floating-chunk': {
+        this.#world.addFloatingChunk(
+          message.id,
+          message.chunk,
+          message.transform
+        )
+        break
+      }
       case 'block-update': {
         this.#world.setBlocks(message.blocks, false)
         break

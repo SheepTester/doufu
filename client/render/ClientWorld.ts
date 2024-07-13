@@ -1,3 +1,4 @@
+import { Mat4 } from 'wgpu-matrix'
 import {
   ClientMessage,
   SerializedBlock,
@@ -14,6 +15,7 @@ import { ClientChunk } from './ClientChunk'
 import { Context } from './Context'
 
 export class ClientWorld extends World<ClientChunk> {
+  #context: Context
   #server: Connection<ServerMessage, ClientMessage>
   #meshWorker = new Connection<MeshWorkerMessage, MeshWorkerRequest>({
     onMessage: message => {
@@ -22,6 +24,13 @@ export class ClientWorld extends World<ClientChunk> {
           const chunk = this.lookup(message.position)
           // If the chunk doesn't exist anymore, the chunk has been unloaded so we
           // can discard the face data
+          if (chunk) {
+            chunk.handleFaces(message.data)
+          }
+          break
+        }
+        case 'lone-mesh': {
+          const chunk = this.floating[message.id]
           if (chunk) {
             chunk.handleFaces(message.data)
           }
@@ -45,6 +54,7 @@ export class ClientWorld extends World<ClientChunk> {
     super({
       createChunk: position => new ClientChunk(context, position)
     })
+    this.#context = context
     this.#server = server
     this.#meshWorker.connectWorker('./client/mesh/index.js')
   }
@@ -62,6 +72,13 @@ export class ClientWorld extends World<ClientChunk> {
         chunk.data = data
       }
     }
+  }
+
+  addFloatingChunk (id: number, data: Uint8Array, transform: Mat4): void {
+    this.floating[id] ??= new ClientChunk(this.#context, id, data)
+    this.floating[id].data = data
+    this.floating[id].transform = transform
+    this.#meshWorker.send({ type: 'lone-chunk-data', id, chunk: data })
   }
 
   setBlock (position: Vector3, block: Block, broadcast = false) {

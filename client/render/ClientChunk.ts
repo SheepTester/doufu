@@ -10,8 +10,12 @@ export class ClientChunk extends Chunk implements Mesh {
   #chunkGroup: Group<{ transform: Uniform }>
   #vertices: GPUBuffer | null = null
 
-  constructor (context: Context, position: Vector3) {
-    super(position)
+  constructor (
+    context: Context,
+    positionOrId: Vector3 | number,
+    data?: Uint8Array
+  ) {
+    super(positionOrId, data)
     this.#context = context
     this.#chunkGroup = new Group(
       context.device,
@@ -19,9 +23,11 @@ export class ClientChunk extends Chunk implements Mesh {
       1,
       { transform: new Uniform(context.device, 0, 4 * 4 * 4) }
     )
-    this.#chunkGroup.uniforms.transform.data(
-      mat4.translation<Float32Array>(toArray(scale(position, SIZE)))
-    )
+    if (typeof positionOrId !== 'number') {
+      this.#chunkGroup.uniforms.transform.data(
+        mat4.translation<Float32Array>(toArray(scale(positionOrId, SIZE)))
+      )
+    }
   }
 
   handleFaces (faces: Uint8Array): void {
@@ -36,6 +42,9 @@ export class ClientChunk extends Chunk implements Mesh {
 
   render (pass: GPURenderPassEncoder): void {
     if (this.#vertices) {
+      if (this.id !== -1) {
+        this.#chunkGroup.uniforms.transform.data(this.transform)
+      }
       pass.setBindGroup(1, this.#chunkGroup.group)
       pass.setVertexBuffer(0, this.#vertices)
       pass.draw(6, this.#vertices.size / 8)

@@ -20,6 +20,7 @@ export class World<T extends Chunk> {
   options: WorldOptions<T>
 
   #chunkMap: Record<Vector3Key, T> = {}
+  floating: Record<number, T> = {}
 
   constructor (options: WorldOptions<T>) {
     this.options = options
@@ -109,8 +110,11 @@ export class World<T extends Chunk> {
    * @returns The array is not live, so it's safe to remove chunks while
    * iterating over `chunks()`.
    */
-  chunks (): T[] {
-    return Object.values(this.#chunkMap)
+  chunks (includeFloating = false): T[] {
+    const chunks = Object.values(this.#chunkMap)
+    return includeFloating
+      ? [...chunks, ...Object.values(this.floating)]
+      : chunks
   }
 
   raycast (

@@ -96,6 +96,13 @@ export function length ({ x, y, z }: Vector3): number {
   return Math.hypot(x, y, z)
 }
 
+export function any (
+  { x, y, z }: Vector3,
+  test: (component: number) => boolean
+): boolean {
+  return test(x) || test(y) || test(z)
+}
+
 /** Returns a zero vector for a zero vector */
 export function normalize ({ x, y, z }: Vector3): Vector3 {
   const length = Math.hypot(x, y, z)

@@ -1,5 +1,6 @@
 import {
   add,
+  any,
   map,
   map3,
   MIDDLE,
@@ -13,7 +14,6 @@ import {
   Block,
   getTexture,
   isOpaque,
-  isSolid,
   showAdjacentFaces
 } from '../../common/world/Block'
 import { Chunk, SIZE } from '../../common/world/Chunk'
@@ -31,8 +31,27 @@ export class ChunkMesh extends Chunk {
     dirty: boolean
   }[] = Array.from({ length: 27 }, () => ({ faces: [], dirty: true }))
 
+  /**
+   * Whether the chunk will be rendered like an entity and should be treated as
+   * if surrounded by air (i.e. its outer faces are visible, even without
+   * neighbors)
+   */
+  #lone: boolean
+
   #isEntirelyAir = false
   #isEntirelyOpaque = false
+
+  constructor (position?: Vector3, data?: Uint8Array) {
+    super(position ?? 0, data)
+    this.#lone = position === undefined
+  }
+
+  getOrAir = (position: Vector3): Block => {
+    if (any(position, coord => coord < 0 || coord >= SIZE)) {
+      return Block.AIR
+    }
+    return this.get(position)
+  }
 
   /**
    * Recomputes whether the chunk is entirely air or entirely opaque. This way
@@ -72,7 +91,12 @@ export class ChunkMesh extends Chunk {
       const xBounds = cacheBounds[Math.floor(i / 9) % 3]
       const yBounds = cacheBounds[Math.floor(i / 3) % 3]
       const zBounds = cacheBounds[i % 3]
-      const getNeighbor = i === MIDDLE ? this.get : this.getWithNeighbor
+      const getNeighbor =
+        i === MIDDLE
+          ? this.get
+          : this.#lone
+          ? this.getOrAir
+          : this.getWithNeighbor
       for (let x = xBounds.min; x < xBounds.max; x++) {
         for (let y = yBounds.min; y < yBounds.max; y++) {
           for (let z = zBounds.min; z < zBounds.max; z++) {

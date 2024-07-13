@@ -1,3 +1,4 @@
+import { Mat4 } from 'wgpu-matrix'
 import { merge } from './buffer'
 import { fromArray, toArray, Vector3 } from './Vector3'
 import { Block } from './world/Block'
@@ -5,6 +6,7 @@ import { Block } from './world/Block'
 export type ServerMessage =
   | { type: 'pong' }
   | { type: 'chunk-data'; chunks: SerializedChunk[] }
+  | { type: 'floating-chunk'; id: number; chunk: Uint8Array; transform: Mat4 }
   | { type: 'block-update'; blocks: SerializedBlock[] }
   | { type: 'entity-update'; entities: SerializedEntity[] }
 export type ClientMessage =

@@ -1,3 +1,4 @@
+import { mat4 } from 'wgpu-matrix'
 import { SerializedChunk } from '../message'
 import { map, MIDDLE, neighborIndex, Vector3, ZERO } from '../Vector3'
 import { Block } from './Block'
@@ -6,14 +7,17 @@ export const SIZE = 32
 
 export class Chunk {
   position: Vector3
+  id: number
   data: Uint8Array
   neighbors: (Chunk | null)[] = Array.from({ length: 27 }, () => null)
+  transform = mat4.identity()
 
   constructor (
-    position: Vector3 = ZERO,
+    positionOrId: Vector3 | number,
     data = new Uint8Array(SIZE * SIZE * SIZE)
   ) {
-    this.position = position
+    this.position = typeof positionOrId === 'number' ? ZERO : positionOrId
+    this.id = typeof positionOrId === 'number' ? positionOrId : -1
     this.data = data
     this.neighbors[MIDDLE] = this
   }
