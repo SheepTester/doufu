@@ -47,19 +47,27 @@ function generateChunk (position: Vector3): Chunk {
       const relativeElevation = Math.floor(elevation) - position.y * SIZE
       const rand = Alea(SEED, x, z)
       const shouldSpawnTree =
+        relativeElevation >= relativeSeaLevel &&
         rand.next() <
-        treeChances(
-          (position.x * SIZE + x) / 60,
-          (position.z * SIZE + z) / 60
-        ) *
-          0.05
+          treeChances(
+            (position.x * SIZE + x) / 60,
+            (position.z * SIZE + z) / 60
+          ) *
+            0.05
       for (let y = 0; y < SIZE; y++) {
         if (y <= relativeElevation - 4) {
           chunk.set({ x, y, z }, Block.STONE)
         } else if (y <= relativeElevation - 1) {
           chunk.set({ x, y, z }, Block.DIRT)
         } else if (y <= relativeElevation) {
-          chunk.set({ x, y, z }, shouldSpawnTree ? Block.LOG : Block.GRASS)
+          chunk.set(
+            { x, y, z },
+            relativeElevation < relativeSeaLevel
+              ? Block.DIRT
+              : shouldSpawnTree
+              ? Block.LOG
+              : Block.GRASS
+          )
         } else if (y <= relativeSeaLevel) {
           chunk.set({ x, y, z }, Block.GLASS)
         } else if (shouldSpawnTree && y <= relativeElevation + 1) {

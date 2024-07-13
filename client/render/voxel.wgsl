@@ -114,5 +114,7 @@ fn fragment_main(vertex: VertexOutput) -> @location(0) vec4<f32> {
     if (sample.a < 0.5) {
         discard;
     }
-    return vec4(sample.rgb * vertex.darkness, sample.a);
+    // Currently ignores translucency because there's no layer sorting or
+    // anything
+    return vec4(sample.rgb * vertex.darkness, 1.0);
 }

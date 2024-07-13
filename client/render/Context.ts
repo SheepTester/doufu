@@ -68,15 +68,15 @@ export async function createContext (
       entryPoint: 'fragment_main',
       targets: [
         {
-          format,
-          blend: {
-            color: {
-              operation: 'add',
-              srcFactor: 'src-alpha',
-              dstFactor: 'one-minus-src-alpha'
-            },
-            alpha: {}
-          }
+          format
+          // blend: {
+          //   color: {
+          //     operation: 'add',
+          //     srcFactor: 'src-alpha',
+          //     dstFactor: 'one-minus-src-alpha'
+          //   },
+          //   alpha: {}
+          // }
         }
       ]
     },
@@ -147,7 +147,10 @@ export async function createContext (
       binding: 2,
       resource: device.createSampler({ mipmapFilter: 'linear' })
     },
-    texture: { binding: 3, resource: texture.createView() },
+    texture: {
+      binding: 3,
+      resource: texture.createView()
+    },
     textureSize: new Uniform(device, 4, 4 * 2)
   })
   voxelCommon.uniforms.textureSize.data(
