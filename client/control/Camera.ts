@@ -9,24 +9,6 @@ export class Camera {
   /** Tilt (rotate about z-axis) */
   roll = 0
 
-  attach (element: HTMLElement) {
-    element.addEventListener('click', () => {
-      element.requestPointerLock()
-    })
-    element.addEventListener('mousemove', e => {
-      if (document.pointerLockElement !== element) {
-        return
-      }
-      this.yaw -= e.movementX / 500
-      this.pitch -= e.movementY / 500
-      if (this.pitch > Math.PI / 2) {
-        this.pitch = Math.PI / 2
-      } else if (this.pitch < -Math.PI / 2) {
-        this.pitch = -Math.PI / 2
-      }
-    })
-  }
-
   /**
    * Returns the camera's transformation matrix. Note that to get the view
    * matrix, you would need to invert this.

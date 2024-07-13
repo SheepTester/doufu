@@ -18,6 +18,7 @@ import { Context, createContext } from './render/Context'
 import pancakeGeo from './asset/pancake.geo.json'
 import pancakeTexture from './asset/pancake.png'
 import { fromBedrockModel } from './render/Model'
+import { UserInput } from './control/input'
 
 declare const USE_WS: string | boolean
 
@@ -65,8 +66,24 @@ export class Game {
   #canvas: HTMLCanvasElement
   #canvasContext: GPUCanvasContext
   #server: Connection<ServerMessage, ClientMessage>
-
-  #keys: Record<string, boolean> = {}
+  #input = new UserInput({
+    w: 'forward',
+    a: 'left',
+    s: 'backward',
+    d: 'right',
+    arrowup: 'forward',
+    arrowleft: 'left',
+    arrowdown: 'backward',
+    arrowright: 'right',
+    ' ': 'jump',
+    shift: 'sneak',
+    mouse0: 'mine',
+    mouse2: 'place',
+    q: 'mine',
+    r: 'place',
+    c: 'toggleCollisions',
+    f: 'toggleFlight'
+  })
 
   #lastTime = Date.now()
   #frameId: number | null = null
@@ -91,7 +108,7 @@ export class Game {
       decode: decodeServer
     })
     this.#world = new ClientWorld(this.#context, this.#server)
-    this.#player = new Player(this.#world, {
+    this.#player = new Player(this.#world, this.#input, {
       x: 0.5,
       y: SIZE + 1.5,
       z: 0.5,
@@ -116,7 +133,7 @@ export class Game {
   }
 
   start () {
-    this.#player.listen(this.#canvas)
+    this.#input.listen(this.#canvas)
 
     new ResizeObserver(([{ devicePixelContentBoxSize }]) => {
       const [{ blockSize, inlineSize }] = devicePixelContentBoxSize
@@ -127,23 +144,6 @@ export class Game {
         this.#paint()
       }
     }).observe(this.#canvas)
-
-    document.addEventListener('keydown', e => {
-      if (e.target !== document && e.target !== document.body) {
-        return
-      }
-      this.#keys[e.key.toLowerCase()] = true
-      if (document.pointerLockElement === this.#canvas) {
-        e.preventDefault()
-      }
-    })
-    document.addEventListener('keyup', e => {
-      this.#keys[e.key.toLowerCase()] = false
-    })
-    // Prevent sticky keys when doing ctrl+shift+tab
-    window.addEventListener('blur', () => {
-      this.#keys = {}
-    })
 
     if (USE_WS) {
       this.#server.connect(

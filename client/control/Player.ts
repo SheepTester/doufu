@@ -5,6 +5,7 @@ import { Entity, EntityOptions } from '../../common/world/Entity'
 import { ClientWorld } from '../render/ClientWorld'
 import { Camera } from './Camera'
 import { RaycastResult } from './raycast'
+import { InputProvider } from './input'
 
 export type PlayerOptions = {
   /** In m/s. Applied when you walk on the ground. */
@@ -34,53 +35,26 @@ export type PlayerOptions = {
 
 export class Player extends Entity<ClientWorld> {
   camera = new Camera()
+  input: InputProvider
   playerOptions: PlayerOptions
-
-  #keys: Record<string, boolean> = {}
 
   constructor (
     world: ClientWorld,
+    input: InputProvider,
     options: PlayerOptions & EntityOptions & Vector3
   ) {
     super(world, options)
+    this.input = input
     this.collisions = options.collisions
     this.playerOptions = options
   }
 
-  listen (element: HTMLElement): void {
-    this.camera.attach(element)
-
-    document.addEventListener('keydown', e => {
-      if (e.target !== document && e.target !== document.body) {
-        return
-      }
-      this.#keys[e.key.toLowerCase()] = true
-      if (e.key === 'c') {
-        this.collisions = !this.collisions
-      }
-      if (e.key === 'f') {
-        this.playerOptions.flying = !this.playerOptions.flying
-      }
-      if (document.pointerLockElement === element) {
-        e.preventDefault()
-      }
-    })
-    document.addEventListener('keyup', e => {
-      this.#keys[e.key.toLowerCase()] = false
-    })
-    element.addEventListener('pointerdown', e => {
-      this.#keys[`mouse${e.button}`] = true
-    })
-    element.addEventListener('pointerup', e => {
-      this.#keys[`mouse${e.button}`] = false
-    })
-    // Prevent sticky keys when doing ctrl+shift+tab
-    window.addEventListener('blur', () => {
-      this.#keys = {}
-    })
-  }
-
   doMovement (elapsed: number): void {
+    this.camera.yaw += this.input.camera.yaw
+    this.camera.pitch += this.input.camera.pitch
+    this.camera.roll += this.input.camera.roll
+    this.input.resetCamera()
+
     const friction =
       this.playerOptions.flying || !this.onGround
         ? scale(
@@ -104,16 +78,16 @@ export class Player extends Entity<ClientWorld> {
     const acceleration = { x: 0, y: 0, z: 0 }
 
     const direction = { x: 0, z: 0 }
-    if (this.#keys.a || this.#keys.arrowleft) {
+    if (this.input.keys.left) {
       direction.x -= 1
     }
-    if (this.#keys.d || this.#keys.arrowright) {
+    if (this.input.keys.right) {
       direction.x += 1
     }
-    if (this.#keys.w || this.#keys.arrowup) {
+    if (this.input.keys.forward) {
       direction.z -= 1
     }
-    if (this.#keys.s || this.#keys.arrowdown) {
+    if (this.input.keys.backward) {
       direction.z += 1
     }
     const moving = direction.x !== 0 || direction.z !== 0
@@ -146,15 +120,15 @@ export class Player extends Entity<ClientWorld> {
     }
 
     if (this.playerOptions.flying) {
-      if (this.#keys[' ']) {
+      if (this.input.keys.jump) {
         acceleration.y += this.playerOptions.moveAccelFlying
       }
-      if (this.#keys.shift) {
+      if (this.input.keys.sneak) {
         acceleration.y -= this.playerOptions.moveAccelFlying
       }
     } else {
       acceleration.y = this.playerOptions.gravity
-      if (this.#keys[' '] && this.onGround) {
+      if (this.input.keys.jump && this.onGround) {
         this.yv = this.playerOptions.jumpVel
       }
     }
@@ -175,13 +149,13 @@ export class Player extends Entity<ClientWorld> {
     if (!result) {
       return
     }
-    if (this.#keys.mouse0 || this.#keys.q) {
+    if (this.input.keys.mine) {
       this.world.setBlock(
         result.block,
-        this.#keys.mouse2 || this.#keys.r ? Block.WHITE : Block.AIR,
+        this.input.keys.place ? Block.WHITE : Block.AIR,
         true
       )
-    } else if (this.#keys.mouse2 || this.#keys.r) {
+    } else if (this.input.keys.place) {
       const target = add(result.block, result.normal)
       if (
         target.x < this.x + this.options.collisionRadius &&
