@@ -64,16 +64,20 @@ export function submitSample (label: Label, time: bigint | number): void {
   }
   const range = stats.max - stats.min
   if (range > 0) {
-    const left = ((stats.lowerQuartile - stats.min) / range) * 300
-    const mid = ((stats.median - stats.min) / range) * 300
-    const right = ((stats.upperQuartile - stats.min) / range) * 300
+    const left = ((stats.lowerQuartile - stats.min) / range) * 150
+    const mid = ((stats.median - stats.min) / range) * 150
+    const right = ((stats.upperQuartile - stats.min) / range) * 150
     measurement.box.setAttributeNS(
       null,
       'd',
-      `M ${left} 0 V 40 H ${right} V 0 z M ${mid} 0 V 40`
+      `M ${left} 0 V 20 H ${right} V 0 z M ${mid} 0 V 20`
     )
   }
-  measurement.nums.textContent = JSON.stringify(stats, null, ' ')
+  measurement.nums.textContent = `avg ${(stats.average / 1e6).toFixed(
+    6
+  )} ms. min ${(stats.min / 1e6).toFixed(6)} ms. med ${(
+    stats.median / 1e6
+  ).toFixed(6)} ms. max ${(stats.max / 1e6).toFixed(6)} ms.`
 }
 
 type Stats = {

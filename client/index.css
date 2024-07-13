@@ -65,30 +65,25 @@ body {
   color: black;
 }
 .measure {
-  display: grid;
-  grid-template-areas:
-    'label plot table'
-    'label nums table';
+  display: flex;
   align-items: center;
 
   & > div {
-    grid-area: label;
+    width: 50px;
   }
   & > svg {
-    grid-area: plot;
-
     fill: none;
     stroke: white;
-    stroke-width: 3px;
+    stroke-width: 2px;
     stroke-linecap: round;
     stroke-linejoin: round;
   }
   & > pre {
-    grid-area: nums;
+    margin: 0;
   }
   & > table {
-    grid-area: table;
     border-collapse: collapse;
+    font-size: 0.8em;
 
     & td {
       border: 1px solid currentColor;

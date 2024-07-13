@@ -23,10 +23,12 @@ function remeshDirtyChunks () {
   }
   dirty.clear()
   timeoutId = undefined
-  connection.send({
-    type: 'mesh-time',
-    time: (performance.now() - start) / dirtyCount
-  })
+  if (dirtyCount > 0) {
+    connection.send({
+      type: 'mesh-time',
+      time: (performance.now() - start) / dirtyCount
+    })
+  }
 }
 function requestRemesh () {
   clearTimeout(timeoutId)
