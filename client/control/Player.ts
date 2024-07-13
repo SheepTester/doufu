@@ -5,7 +5,7 @@ import { Entity, EntityOptions } from '../../common/world/Entity'
 import { ClientWorld } from '../render/ClientWorld'
 import { Camera } from './Camera'
 import { RaycastResult } from './raycast'
-import { InputProvider } from './input'
+import { defaultKeys, InputProvider, KeyInput } from './input'
 
 export type PlayerOptions = {
   /** In m/s. Applied when you walk on the ground. */
@@ -36,6 +36,7 @@ export type PlayerOptions = {
 export class Player extends Entity<ClientWorld> {
   camera = new Camera()
   input: InputProvider
+  prevKeys: KeyInput = defaultKeys()
   playerOptions: PlayerOptions
 
   constructor (
@@ -54,6 +55,13 @@ export class Player extends Entity<ClientWorld> {
     this.camera.pitch += this.input.camera.pitch
     this.camera.roll += this.input.camera.roll
     this.input.resetCamera()
+
+    if (this.input.keys.toggleCollisions && !this.prevKeys.toggleCollisions) {
+      this.collisions = !this.collisions
+    }
+    if (this.input.keys.toggleFlight && !this.prevKeys.toggleFlight) {
+      this.playerOptions.flying = !this.playerOptions.flying
+    }
 
     const friction =
       this.playerOptions.flying || !this.onGround
@@ -134,6 +142,8 @@ export class Player extends Entity<ClientWorld> {
     }
 
     this.move(elapsed, acceleration, friction)
+
+    this.prevKeys = { ...this.input.keys }
   }
 
   raycast (): RaycastResult | null {

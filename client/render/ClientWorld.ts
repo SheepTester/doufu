@@ -25,7 +25,6 @@ export class ClientWorld extends World<ClientChunk> {
           // can discard the face data
           if (chunk) {
             chunk.handleFaces(message.data)
-            this.#context.voxelMeshes = this.chunks()
           }
           break
         }

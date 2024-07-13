@@ -8,6 +8,7 @@ import postprocessCode from './postprocess.wgsl'
 import { Uniform } from './Uniform'
 import voxelOutlineCode from './voxel-outline.wgsl'
 import voxelCode from './voxel.wgsl'
+import { ClientWorld } from './ClientWorld'
 
 export interface Mesh {
   render(pass: GPURenderPassEncoder): void
@@ -27,6 +28,7 @@ export type ContextOptions = {
 
 export async function createContext (
   format: GPUTextureFormat,
+
   options: Partial<ContextOptions> = {}
 ): Promise<Context> {
   const adapter = await navigator.gpu.requestAdapter()
@@ -255,7 +257,7 @@ export async function createContext (
 
 export class Context {
   device: GPUDevice
-  voxelMeshes: Mesh[] = []
+  world?: ClientWorld
   models: Model[] = []
 
   #format: GPUTextureFormat
@@ -334,10 +336,11 @@ export class Context {
         },
         timestampWrites: this.#timestamp?.getTimestampWrites()
       })
-      if (this.voxelMeshes.length > 0) {
+      const chunks = this.world?.chunks()
+      if (chunks && chunks.length > 0) {
         pass.setPipeline(this.voxelCommon.pipeline)
         pass.setBindGroup(0, this.voxelCommon.group)
-        for (const mesh of this.voxelMeshes) {
+        for (const mesh of chunks) {
           mesh.render(pass)
         }
       }

@@ -13,7 +13,7 @@ export type KeyInput = {
   place: boolean
 }
 
-const defaultKeys = (): KeyInput => ({
+export const defaultKeys = (): KeyInput => ({
   forward: false,
   backward: false,
   left: false,
@@ -39,7 +39,7 @@ export type CameraInput = {
   roll: number
 }
 
-const defaultCamera = (): CameraInput => ({ yaw: 0, pitch: 0, roll: 0 })
+export const defaultCamera = (): CameraInput => ({ yaw: 0, pitch: 0, roll: 0 })
 
 export interface InputProvider {
   keys: KeyInput

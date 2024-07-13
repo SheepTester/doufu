@@ -130,6 +130,8 @@ export class Game {
       collisions: true,
       flying: false
     })
+
+    context.world = this.#world
   }
 
   start () {
