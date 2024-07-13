@@ -101,6 +101,7 @@ export class Server {
           } else if (chunk.generationState.type === 'ungenerated') {
             chunk.generationState.type = 'generating'
             this.#generator.send({ type: 'generate', position: chunk.position })
+            console.log('generate', chunk.position)
           }
         }
         if (chunksWithData.length > 0) {
@@ -134,6 +135,7 @@ export class Server {
                 type: 'generate',
                 position: chunk.position
               })
+              this.#world.register(chunk)
             }
             continue
           }

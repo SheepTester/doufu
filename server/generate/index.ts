@@ -59,7 +59,7 @@ function generateChunk (position: Vector3): Chunk {
         } else if (y <= relativeElevation - 1) {
           chunk.set({ x, y, z }, Block.DIRT)
         } else if (y <= relativeElevation) {
-          chunk.set({ x, y, z }, shouldSpawnTree ? Block.DIRT : Block.GRASS)
+          chunk.set({ x, y, z }, shouldSpawnTree ? Block.LOG : Block.GRASS)
         } else if (y <= relativeSeaLevel) {
           chunk.set({ x, y, z }, Block.GLASS)
         } else if (shouldSpawnTree && y <= relativeElevation + 1) {

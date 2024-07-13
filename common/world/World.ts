@@ -29,7 +29,11 @@ export class World<T extends Chunk> {
    * If a chunk already exists at the given position, it's overwritten.
    */
   register (chunk: T): void {
-    this.#chunkMap[toKey(chunk.position)] = chunk
+    const key = toKey(chunk.position)
+    if (this.#chunkMap[key] === chunk) {
+      return
+    }
+    this.#chunkMap[key] = chunk
     for (const offset of neighbors) {
       const neighbor = this.lookup(add(chunk.position, offset))
       if (!neighbor) {
