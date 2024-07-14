@@ -3,7 +3,8 @@
   "scripts": {
     "build": "node esbuild.config.js",
     "clean": "rm -r dist/ && rm -r static/ && git checkout -- static/",
-    "dev": "node esbuild.config.js serve"
+    "dev": "node esbuild.config.js serve",
+    "type": "tsc --noEmit"
   },
   "devDependencies": {
     "@es-exec/esbuild-plugin-serve": "^0.0.5",
@@ -11,7 +12,8 @@
     "@types/node": "^20.14.9",
     "@types/ws": "^8.5.10",
     "@webgpu/types": "^0.1.43",
-    "esbuild": "^0.23.0"
+    "esbuild": "^0.23.0",
+    "typescript": "^5.5.3"
   },
   "dependencies": {
     "alea": "^1.0.1",

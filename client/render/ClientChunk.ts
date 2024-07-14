@@ -1,6 +1,6 @@
 import { mat4 } from 'wgpu-matrix'
 import { scale, toArray, toKey, Vector3 } from '../../common/Vector3'
-import { Chunk, SIZE } from '../../common/world/Chunk'
+import { Chunk, LoneId, SIZE } from '../../common/world/Chunk'
 import { Context, Mesh } from './Context'
 import { Group } from './Group'
 import { Uniform } from './Uniform'
@@ -12,10 +12,10 @@ export class ClientChunk extends Chunk implements Mesh {
 
   constructor (
     context: Context,
-    positionOrId: Vector3 | number,
+    position: Vector3 | LoneId,
     data?: Uint8Array
   ) {
-    super(positionOrId, data)
+    super(position, data)
     this.#context = context
     this.#chunkGroup = new Group(
       context.device,
@@ -23,9 +23,9 @@ export class ClientChunk extends Chunk implements Mesh {
       1,
       { transform: new Uniform(context.device, 0, 4 * 4 * 4) }
     )
-    if (typeof positionOrId !== 'number') {
+    if ('x' in position) {
       this.#chunkGroup.uniforms.transform.data(
-        mat4.translation<Float32Array>(toArray(scale(positionOrId, SIZE)))
+        mat4.translation<Float32Array>(toArray(scale(position, SIZE)))
       )
     }
   }
@@ -33,7 +33,11 @@ export class ClientChunk extends Chunk implements Mesh {
   handleFaces (faces: Uint8Array): void {
     this.#vertices?.destroy()
     this.#vertices = this.#context.device.createBuffer({
-      label: `chunk (${toKey(this.position)}) vertex buffer vertices`,
+      label: `chunk (${
+        'id' in this.position
+          ? `floating ${this.position.id}`
+          : toKey(this.position)
+      }) vertex buffer vertices`,
       size: faces.byteLength,
       usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
     })
@@ -42,8 +46,10 @@ export class ClientChunk extends Chunk implements Mesh {
 
   render (pass: GPURenderPassEncoder): void {
     if (this.#vertices) {
-      if (this.id !== -1) {
-        this.#chunkGroup.uniforms.transform.data(this.transform)
+      if ('id' in this.position) {
+        this.#chunkGroup.uniforms.transform.data(
+          this.position.transform ?? mat4.identity<Float32Array>()
+        )
       }
       pass.setBindGroup(1, this.#chunkGroup.group)
       pass.setVertexBuffer(0, this.#vertices)

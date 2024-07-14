@@ -159,6 +159,8 @@ export class Game {
     } else {
       this.#server.connectWorker('./server/worker.js')
     }
+
+    this.#server.send({ type: 'subscribe-chunks', chunks: [{ id: 0 }] })
   }
 
   stop () {
@@ -176,14 +178,6 @@ export class Game {
       }
       case 'chunk-data': {
         this.#world.setChunks(message.chunks)
-        break
-      }
-      case 'floating-chunk': {
-        this.#world.addFloatingChunk(
-          message.id,
-          message.chunk,
-          message.transform
-        )
         break
       }
       case 'block-update': {
@@ -255,6 +249,9 @@ export class Game {
     }
     const toUnload: Vector3[] = []
     for (const chunk of this.#world.chunks()) {
+      if ('id' in chunk.position) {
+        continue
+      }
       const distance = length(
         map2(
           chunk.position,

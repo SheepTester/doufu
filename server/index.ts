@@ -11,6 +11,7 @@ import { Block } from '../common/world/Block'
 import { World } from '../common/world/World'
 import { WorldGenMessage, WorldGenRequest } from './generate/message'
 import { ServerChunk } from './world/ServerChunk'
+import { SIZE } from '../common/world/Chunk'
 
 export interface Connection {
   send(message: ServerMessage): void
@@ -57,12 +58,25 @@ export class Server {
   constructor () {
     this.#generator.connectWorker('./generate/index.js')
 
-    this.#world.floating[0] = new ServerChunk(0)
-    this.#world.floating[0].data.fill(Block.STONE)
-    this.#world.floating[0].transform = mat4.translate(
-      mat4.axisRotation([1, 2, 3], Math.PI / 6),
-      [16, 48, 0]
+    this.#world.register(
+      new ServerChunk({
+        id: 0,
+        transform: mat4.translate<Float32Array>(
+          mat4.axisRotation([1, 2, 3], Math.PI / 6),
+          [16, 48, 0]
+        )
+      })
     )
+    for (let x = 0; x < SIZE; x++) {
+      for (let y = 0; y < SIZE; y++) {
+        for (let z = 0; z < SIZE; z++) {
+          if (Math.hypot(x - SIZE / 2, y - SIZE / 2, z - SIZE / 2) < 15) {
+            this.#world.floating[0].set({ x, y, z }, Block.STONE)
+          }
+        }
+      }
+    }
+    this.#world.floating[0].generationState = { type: 'generated' }
   }
 
   handleOpen (conn: Connection): void {
@@ -73,14 +87,6 @@ export class Server {
       rotationY: 0,
       subscribed: new Set()
     })
-    for (const chunk of Object.values(this.#world.floating)) {
-      conn.send({
-        type: 'floating-chunk',
-        id: chunk.id,
-        chunk: chunk.data,
-        transform: chunk.transform
-      })
-    }
   }
 
   handleMessage (conn: Connection, message: ClientMessage): void {
@@ -103,6 +109,10 @@ export class Server {
               })
             }
           }
+          conn.send({
+            type: 'block-update',
+            blocks: [{ position: { x: 1, y: 1, z: 1 }, block, id: 0 }]
+          })
         }, 500)
         break
       }
@@ -112,7 +122,10 @@ export class Server {
           const chunk = this.#world.ensure(position)
           chunk.subscribers.add(conn)
           player.subscribed.add(chunk)
-          if (chunk.generationState.type === 'generated') {
+          if (
+            chunk.generationState.type === 'generated' ||
+            'id' in chunk.position
+          ) {
             chunksWithData.push(chunk.serialize())
           } else if (chunk.generationState.type === 'ungenerated') {
             chunk.generationState.type = 'generating'
@@ -136,13 +149,16 @@ export class Server {
       }
       case 'block-update': {
         const subscribers = new Map<Connection, SerializedBlock[]>()
-        for (const { position, block } of message.blocks) {
+        for (const { position, block, id } of message.blocks) {
           const {
             chunkPos,
             chunk = new ServerChunk(chunkPos),
             local
-          } = this.#world.setBlock(position, block)
-          if (chunk.generationState.type !== 'generated') {
+          } = this.#world.setBlock(position, block, id)
+          if (
+            chunk.generationState.type !== 'generated' &&
+            'x' in chunk.position
+          ) {
             chunk.generationState.queue.push({ position: local, block })
             if (chunk.generationState.type === 'ungenerated') {
               chunk.generationState.type = 'generating'
@@ -163,7 +179,7 @@ export class Server {
               updates = []
               subscribers.set(subscriber, updates)
             }
-            updates.push({ position, block })
+            updates.push({ position, block, id })
           }
         }
         for (const [subscriber, blocks] of subscribers) {

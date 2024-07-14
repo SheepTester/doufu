@@ -8,13 +8,14 @@ import {
   neighbors,
   add,
   neighborIndex,
-  scale
+  scale,
+  ZERO
 } from '../Vector3'
 import { Block, isSolid } from './Block'
-import { Chunk, SIZE } from './Chunk'
+import { Chunk, LoneId, SIZE } from './Chunk'
 
 export type WorldOptions<T> = {
-  createChunk: (position: Vector3) => T
+  createChunk: (position: Vector3 | LoneId) => T
 }
 export class World<T extends Chunk> {
   options: WorldOptions<T>
@@ -30,6 +31,10 @@ export class World<T extends Chunk> {
    * If a chunk already exists at the given position, it's overwritten.
    */
   register (chunk: T): void {
+    if ('id' in chunk.position) {
+      this.floating[chunk.position.id] = chunk
+      return
+    }
     const key = toKey(chunk.position)
     if (this.#chunkMap[key] === chunk) {
       return
@@ -46,16 +51,23 @@ export class World<T extends Chunk> {
   }
 
   /** Gets a chunk by its chunk coordinates */
-  lookup (position: Vector3): T | null {
-    return this.#chunkMap[toKey(position)] ?? null
+  lookup (position: Vector3 | LoneId): T | null {
+    return (
+      ('id' in position
+        ? this.floating[position.id]
+        : this.#chunkMap[toKey(position)]) ?? null
+    )
   }
 
   /**
    * Gets a chunk by its chunk coordinates. If the chunk doesn't exist, it'll
    * create a new chunk and register it.
    */
-  ensure (position: Vector3): T {
-    const chunk = this.#chunkMap[toKey(position)]
+  ensure (position: Vector3 | LoneId): T {
+    const chunk =
+      'id' in position
+        ? this.floating[position.id]
+        : this.#chunkMap[toKey(position)]
     if (chunk) {
       return chunk
     } else {
@@ -73,13 +85,19 @@ export class World<T extends Chunk> {
   /**
    * Looks up a block by its global coordinates. Returns `null` if the chunk
    * doesn't exist.
+   * @param id The floating chunk ID.
    */
-  getBlock (position: Vector3): Block | null {
-    const chunk = this.lookup(map(position, n => Math.floor(n / SIZE)))
-    return (
-      chunk?.get(
-        map2(position, chunk.position, (block, chunk) => block - chunk * SIZE)
-      ) ?? null
+  getBlock (position: Vector3, id?: number): Block | null {
+    const chunk = this.lookup(
+      id !== undefined ? { id } : map(position, n => Math.floor(n / SIZE))
+    )
+    if (!chunk) {
+      return null
+    }
+    return chunk.get(
+      'id' in chunk.position
+        ? position
+        : map2(position, chunk.position, (block, chunk) => block - chunk * SIZE)
     )
   }
 
@@ -90,11 +108,18 @@ export class World<T extends Chunk> {
   /**
    * Returns the chunk that the block was set in. Does nothing if the chunk
    * doesn't exist.
+   * @param id The floating chunk ID.
    */
   setBlock (
     position: Vector3,
-    block: Block
+    block: Block,
+    id?: number
   ): { chunk?: T; chunkPos: Vector3; local: Vector3 } {
+    if (id !== undefined) {
+      const chunk = this.floating[id]
+      chunk?.set(position, block)
+      return { chunk, chunkPos: ZERO, local: position }
+    }
     const chunkPos = map(position, n => Math.floor(n / SIZE))
     const local = map2(
       position,
@@ -110,11 +135,8 @@ export class World<T extends Chunk> {
    * @returns The array is not live, so it's safe to remove chunks while
    * iterating over `chunks()`.
    */
-  chunks (includeFloating = false): T[] {
-    const chunks = Object.values(this.#chunkMap)
-    return includeFloating
-      ? [...chunks, ...Object.values(this.floating)]
-      : chunks
+  chunks (): T[] {
+    return [...Object.values(this.#chunkMap), ...Object.values(this.floating)]
   }
 
   raycast (

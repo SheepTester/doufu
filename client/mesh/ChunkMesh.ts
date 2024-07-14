@@ -16,7 +16,7 @@ import {
   isOpaque,
   showAdjacentFaces
 } from '../../common/world/Block'
-import { Chunk, SIZE } from '../../common/world/Chunk'
+import { Chunk, LoneId, SIZE } from '../../common/world/Chunk'
 import { directions } from '../../common/world/Face'
 
 const cacheBounds = [
@@ -41,9 +41,9 @@ export class ChunkMesh extends Chunk {
   #isEntirelyAir = false
   #isEntirelyOpaque = false
 
-  constructor (position?: Vector3, data?: Uint8Array) {
-    super(position ?? 0, data)
-    this.#lone = position === undefined
+  constructor (position: Vector3 | LoneId, data?: Uint8Array) {
+    super(position, data)
+    this.#lone = 'id' in position
   }
 
   getOrAir = (position: Vector3): Block => {

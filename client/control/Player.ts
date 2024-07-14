@@ -168,6 +168,7 @@ export class Player extends Entity<ClientWorld> {
       this.world.setBlock(
         result.block,
         this.input.keys.place ? Block.WHITE : Block.AIR,
+        undefined,
         true
       )
     } else if (this.input.keys.place) {
@@ -183,7 +184,7 @@ export class Player extends Entity<ClientWorld> {
         return
       }
       if (this.world.getBlock(target) === Block.AIR) {
-        this.world.setBlock(target, Block.WHITE, true)
+        this.world.setBlock(target, Block.WHITE, undefined, true)
       }
     }
   }

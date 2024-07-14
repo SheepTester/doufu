@@ -29,13 +29,6 @@ export class ClientWorld extends World<ClientChunk> {
           }
           break
         }
-        case 'lone-mesh': {
-          const chunk = this.floating[message.id]
-          if (chunk) {
-            chunk.handleFaces(message.data)
-          }
-          break
-        }
         case 'mesh-time': {
           submitSample('mesh', message.time * 1e6)
           break
@@ -74,22 +67,18 @@ export class ClientWorld extends World<ClientChunk> {
     }
   }
 
-  addFloatingChunk (id: number, data: Uint8Array, transform: Mat4): void {
-    this.floating[id] ??= new ClientChunk(this.#context, id, data)
-    this.floating[id].data = data
-    this.floating[id].transform = transform
-    this.#meshWorker.send({ type: 'lone-chunk-data', id, chunk: data })
-  }
-
-  setBlock (position: Vector3, block: Block, broadcast = false) {
+  setBlock (position: Vector3, block: Block, id?: number, broadcast = false) {
     this.#meshWorker.send({
       type: 'block-update',
-      blocks: [{ position, block }]
+      blocks: [{ position, block, id }]
     })
     if (broadcast) {
-      this.#server.send({ type: 'block-update', blocks: [{ position, block }] })
+      this.#server.send({
+        type: 'block-update',
+        blocks: [{ position, block, id }]
+      })
     }
-    return super.setBlock(position, block)
+    return super.setBlock(position, block, id)
   }
 
   setBlocks (blocks: SerializedBlock[], broadcast: boolean): void {
@@ -97,8 +86,8 @@ export class ClientWorld extends World<ClientChunk> {
     if (broadcast) {
       this.#server.send({ type: 'block-update', blocks })
     }
-    for (const { position, block } of blocks) {
-      super.setBlock(position, block)
+    for (const { position, block, id } of blocks) {
+      super.setBlock(position, block, id)
     }
   }
 }

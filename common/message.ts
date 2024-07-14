@@ -1,26 +1,27 @@
-import { Mat4 } from 'wgpu-matrix'
 import { merge } from './buffer'
 import { fromArray, toArray, Vector3 } from './Vector3'
 import { Block } from './world/Block'
+import { LoneId } from './world/Chunk'
 
 export type ServerMessage =
   | { type: 'pong' }
   | { type: 'chunk-data'; chunks: SerializedChunk[] }
-  | { type: 'floating-chunk'; id: number; chunk: Uint8Array; transform: Mat4 }
   | { type: 'block-update'; blocks: SerializedBlock[] }
   | { type: 'entity-update'; entities: SerializedEntity[] }
 export type ClientMessage =
   | { type: 'ping' }
-  | { type: 'subscribe-chunks'; chunks: Vector3[] }
+  | { type: 'subscribe-chunks'; chunks: (Vector3 | LoneId)[] }
   | { type: 'unsubscribe-chunks'; chunks: Vector3[] }
   | { type: 'block-update'; blocks: SerializedBlock[] }
   | { type: 'move'; position: Vector3; rotationY: number }
 
 export type SerializedChunk = {
-  position: Vector3
+  position: Vector3 | LoneId
   data: Uint8Array
 }
 export type SerializedBlock = {
+  /** Floating chunk ID */
+  id?: number
   position: Vector3
   block: Block
 }
@@ -40,24 +41,24 @@ export function encode (
     case 'pong': {
       return new Int32Array([69])
     }
-    case 'subscribe-chunks': {
-      return new Int32Array([1, ...message.chunks.flatMap(toArray)])
-    }
-    case 'chunk-data': {
-      const chunks: number[] = []
-      let offset = (2 + message.chunks.length * 4) * 4
-      for (const {
-        position: { x, y, z },
-        data
-      } of message.chunks) {
-        chunks.push(x, y, z, offset)
-        offset += data.length
-      }
-      return merge([
-        new Int32Array([1, message.chunks.length, ...chunks]),
-        ...message.chunks.map(({ data }) => data)
-      ])
-    }
+    // case 'subscribe-chunks': {
+    //   return new Int32Array([1, ...message.chunks.flatMap(toArray)])
+    // }
+    // case 'chunk-data': {
+    //   const chunks: number[] = []
+    //   let offset = (2 + message.chunks.length * 4) * 4
+    //   for (const {
+    //     position: { x, y, z },
+    //     data
+    //   } of message.chunks) {
+    //     chunks.push(x, y, z, offset)
+    //     offset += data.length
+    //   }
+    //   return merge([
+    //     new Int32Array([1, message.chunks.length, ...chunks]),
+    //     ...message.chunks.map(({ data }) => data)
+    //   ])
+    // }
     case 'block-update': {
       return new Int32Array([
         2,

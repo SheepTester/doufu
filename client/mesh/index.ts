@@ -63,25 +63,14 @@ const connection = new Connection<MeshWorkerRequest, MeshWorkerMessage>({
         requestRemesh()
         break
       }
-      case 'lone-chunk-data': {
-        const start = performance.now()
-        const data = new ChunkMesh(undefined, message.chunk).generateMesh()
-        connection.send({ type: 'lone-mesh', id: message.id, data }, [
-          data.buffer
-        ])
-        connection.send({
-          type: 'mesh-time',
-          time: performance.now() - start
-        })
-        break
-      }
       case 'block-update': {
-        for (const { position, block } of message.blocks) {
-          const { chunk, local } = world.setBlock(position, block)
+        for (const { position, block, id } of message.blocks) {
+          const { chunk, local } = world.setBlock(position, block, id)
           if (!chunk) {
             break
           }
           chunk.handleDataUpdate()
+          // TODO: Where does it set the current chunk to be dirty?
           const part = map(local, local =>
             local < 1 ? -1 : local < SIZE - 1 ? 0 : 1
           )

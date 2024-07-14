@@ -1,15 +1,11 @@
 import { SerializedBlock, SerializedChunk } from '../../common/message'
 import { Vector3 } from '../../common/Vector3'
+import { LoneId } from '../../common/world/Chunk'
 
 export type MeshWorkerMessage =
   | {
       type: 'mesh'
-      position: Vector3
-      data: Uint8Array
-    }
-  | {
-      type: 'lone-mesh'
-      id: number
+      position: Vector3 | LoneId
       data: Uint8Array
     }
   | {
@@ -19,6 +15,5 @@ export type MeshWorkerMessage =
     }
 export type MeshWorkerRequest =
   | { type: 'chunk-data'; chunks: SerializedChunk[] }
-  | { type: 'lone-chunk-data'; chunk: Uint8Array; id: number }
   | { type: 'block-update'; blocks: SerializedBlock[] }
   | { type: 'forget'; chunk: Vector3 }
