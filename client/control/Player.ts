@@ -1,5 +1,13 @@
 import { mat4, Mat4 } from 'wgpu-matrix'
-import { add, normalize, scale, Vector3 } from '../../common/Vector3'
+import {
+  add,
+  length,
+  normalize,
+  scale,
+  sub,
+  transform,
+  Vector3
+} from '../../common/Vector3'
 import { Block } from '../../common/world/Block'
 import { Entity, EntityOptions } from '../../common/world/Entity'
 import { ClientWorld } from '../render/ClientWorld'
@@ -38,6 +46,7 @@ export class Player extends Entity<ClientWorld> {
   input: InputProvider
   prevKeys: KeyInput = defaultKeys()
   playerOptions: PlayerOptions
+  grapple: Vector3 | null = null
 
   constructor (
     world: ClientWorld,
@@ -60,13 +69,6 @@ export class Player extends Entity<ClientWorld> {
       this.camera.pitch = -Math.PI / 2
     }
 
-    if (this.input.keys.toggleCollisions && !this.prevKeys.toggleCollisions) {
-      this.options.collisions = !this.options.collisions
-    }
-    if (this.input.keys.toggleFlight && !this.prevKeys.toggleFlight) {
-      this.playerOptions.flying = !this.playerOptions.flying
-    }
-
     const friction =
       this.playerOptions.flying || !this.onGround
         ? scale(
@@ -87,7 +89,7 @@ export class Player extends Entity<ClientWorld> {
             }),
             this.playerOptions.frictionGround
           )
-    const acceleration = { x: 0, y: 0, z: 0 }
+    let acceleration = { x: 0, y: 0, z: 0 }
 
     const direction = { x: 0, z: 0 }
     if (this.input.keys.left) {
@@ -145,9 +147,12 @@ export class Player extends Entity<ClientWorld> {
       }
     }
 
-    this.move(elapsed, acceleration, friction)
+    if (this.grapple) {
+      const diff = sub(this, this.grapple)
+      acceleration = add(acceleration, scale(diff, -3))
+    }
 
-    this.prevKeys = { ...this.input.keys }
+    this.move(elapsed, acceleration, friction)
   }
 
   raycast (): WorldRaycastResult | null {
@@ -159,33 +164,49 @@ export class Player extends Entity<ClientWorld> {
   }
 
   interact (): void {
+    if (this.input.keys.toggleCollisions && !this.prevKeys.toggleCollisions) {
+      this.options.collisions = !this.options.collisions
+    }
+    if (this.input.keys.toggleFlight && !this.prevKeys.toggleFlight) {
+      this.playerOptions.flying = !this.playerOptions.flying
+    }
+
     const result = this.raycast()
-    if (!result) {
-      return
-    }
-    if (this.input.keys.mine) {
-      this.world.setBlock(
-        result.block,
-        this.input.keys.place ? Block.WHITE : Block.AIR,
-        result.id,
-        true
-      )
-    } else if (this.input.keys.place) {
-      const target = add(result.block, result.normal)
-      if (
-        target.x < this.x + this.options.collisionRadius &&
-        this.x - this.options.collisionRadius < target.x + 1 &&
-        target.z < this.z + this.options.collisionRadius &&
-        this.z - this.options.collisionRadius < target.z + 1 &&
-        target.y < this.y + this.options.height &&
-        this.y < target.y + 1
-      ) {
-        return
+    if (result) {
+      if (this.input.keys.mine) {
+        this.world.setBlock(
+          result.block,
+          this.input.keys.place ? Block.WHITE : Block.AIR,
+          result.id,
+          true
+        )
+      } else if (this.input.keys.place) {
+        const target = add(result.block, result.normal)
+        if (
+          target.x < this.x + this.options.collisionRadius &&
+          this.x - this.options.collisionRadius < target.x + 1 &&
+          target.z < this.z + this.options.collisionRadius &&
+          this.z - this.options.collisionRadius < target.z + 1 &&
+          target.y < this.y + this.options.height &&
+          this.y < target.y + 1
+        ) {
+          return
+        }
+        if (this.world.getBlock(target, result.id) === Block.AIR) {
+          this.world.setBlock(target, Block.WHITE, result.id, true)
+        }
       }
-      if (this.world.getBlock(target, result.id) === Block.AIR) {
-        this.world.setBlock(target, Block.WHITE, result.id, true)
-      }
     }
+    if (this.input.keys.grapple && !this.prevKeys.grapple) {
+      this.grapple = !result
+        ? null
+        : result.transform
+        ? transform(result.position, result.transform)
+        : result.position
+      console.log('grapple', this.grapple)
+    }
+
+    this.prevKeys = { ...this.input.keys }
   }
 
   getTransform (): Mat4 {

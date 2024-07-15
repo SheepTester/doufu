@@ -85,7 +85,8 @@ export class Game {
     q: 'mine',
     r: 'place',
     c: 'toggleCollisions',
-    f: 'toggleFlight'
+    f: 'toggleFlight',
+    g: 'grapple'
   })
 
   #lastTime = Date.now()

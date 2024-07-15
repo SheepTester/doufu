@@ -11,6 +11,7 @@ export type KeyInput = {
   toggleFlight: boolean
   mine: boolean
   place: boolean
+  grapple: boolean
 }
 
 export const defaultKeys = (): KeyInput => ({
@@ -23,7 +24,8 @@ export const defaultKeys = (): KeyInput => ({
   toggleCollisions: false,
   toggleFlight: false,
   mine: false,
-  place: false
+  place: false,
+  grapple: false
 })
 
 /**

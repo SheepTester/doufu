@@ -1,4 +1,4 @@
-import { createNoise2D } from 'simplex-noise'
+import { createNoise2D, createNoise3D } from 'simplex-noise'
 import { Connection } from '../../client/net/Connection'
 import { Vector3 } from '../../common/Vector3'
 import { Block } from '../../common/world/Block'
@@ -13,8 +13,23 @@ const elevationNoise2 = createNoise2D(Alea(SEED, 'elevationNoise2'))
 const elevationNoise3 = createNoise2D(Alea(SEED, 'elevationNoise3'))
 const elevationNoise4 = createNoise2D(Alea(SEED, 'elevationNoise4'))
 const treeChances = createNoise2D(Alea(SEED, 'treeChances'))
+const islandNoise1 = createNoise3D(Alea(SEED, 'islandNoise1'))
+const islandNoise2 = createNoise3D(Alea(SEED, 'islandNoise2'))
 const BASE_SCALE = 200
 const BASE_AMPLITUDE = 20
+
+function getElevation (x: number, z: number) {
+  return (
+    elevationNoise1(x, z) +
+    elevationNoise2(x * 2, z * 2) / 2 +
+    elevationNoise3(x * 4, z * 4) / 4 +
+    elevationNoise4(x * 8, z * 8) / 8
+  )
+}
+
+function getIslandness (x: number, y: number, z: number) {
+  return islandNoise1(x, y, z) + islandNoise2(x * 2, y * 2, z * 2) / 2
+}
 
 function generateChunk (position: Vector3): Chunk {
   const relativeSeaLevel = 10 - position.y * SIZE
@@ -23,26 +38,11 @@ function generateChunk (position: Vector3): Chunk {
   for (let x = 0; x < SIZE; x++) {
     for (let z = 0; z < SIZE; z++) {
       const elevation =
-        elevationNoise1(
+        getElevation(
           (position.x * SIZE + x) / BASE_SCALE,
           (position.z * SIZE + z) / BASE_SCALE
         ) *
           BASE_AMPLITUDE +
-        elevationNoise2(
-          (position.x * SIZE + x) / (BASE_SCALE / 2),
-          (position.z * SIZE + z) / (BASE_SCALE / 2)
-        ) *
-          (BASE_AMPLITUDE / 2) +
-        elevationNoise3(
-          (position.x * SIZE + x) / (BASE_SCALE / 4),
-          (position.z * SIZE + z) / (BASE_SCALE / 4)
-        ) *
-          (BASE_AMPLITUDE / 4) +
-        elevationNoise4(
-          (position.x * SIZE + x) / (BASE_SCALE / 8),
-          (position.z * SIZE + z) / (BASE_SCALE / 8)
-        ) *
-          (BASE_AMPLITUDE / 8) +
         20
       const relativeElevation = Math.floor(elevation) - position.y * SIZE
       const rand = Alea(SEED, x, z)
@@ -74,6 +74,26 @@ function generateChunk (position: Vector3): Chunk {
           chunk.set({ x, y, z }, Block.LOG)
         } else if (shouldSpawnTree && y <= relativeElevation + 4) {
           chunk.set({ x, y, z }, Block.LEAVES)
+        } else {
+          const scale = 100
+          const islandness =
+            getIslandness(
+              (position.x * SIZE + x) / scale,
+              (position.y * SIZE + y) / scale,
+              (position.z * SIZE + z) / scale
+            ) * Math.min(1, (y - relativeElevation) / 50)
+          if (islandness > 1) {
+            const islandnessAbove =
+              getIslandness(
+                (position.x * SIZE + x) / scale,
+                (position.y * SIZE + y + 1) / scale,
+                (position.z * SIZE + z) / scale
+              ) * Math.min(1, (y + 1 - relativeElevation) / 50)
+            chunk.set(
+              { x, y, z },
+              islandnessAbove > 1 ? Block.STONE : Block.GRASS
+            )
+          }
         }
       }
     }
