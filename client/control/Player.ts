@@ -30,7 +30,6 @@ export type PlayerOptions = {
   /** In m. */
   reach: number
 
-  collisions: boolean
   flying: boolean
 }
 
@@ -47,7 +46,6 @@ export class Player extends Entity<ClientWorld> {
   ) {
     super(world, options)
     this.input = input
-    this.collisions = options.collisions
     this.playerOptions = options
   }
 
@@ -63,7 +61,7 @@ export class Player extends Entity<ClientWorld> {
     }
 
     if (this.input.keys.toggleCollisions && !this.prevKeys.toggleCollisions) {
-      this.collisions = !this.collisions
+      this.options.collisions = !this.options.collisions
     }
     if (this.input.keys.toggleFlight && !this.prevKeys.toggleFlight) {
       this.playerOptions.flying = !this.playerOptions.flying
@@ -73,9 +71,9 @@ export class Player extends Entity<ClientWorld> {
       this.playerOptions.flying || !this.onGround
         ? scale(
             {
-              x: this.xv,
-              y: this.playerOptions.flying ? this.yv : 0,
-              z: this.zv
+              x: this.velocity.x,
+              y: this.playerOptions.flying ? this.velocity.y : 0,
+              z: this.velocity.z
             },
             this.playerOptions.flying
               ? this.playerOptions.frictionCoeffFlying
@@ -83,9 +81,9 @@ export class Player extends Entity<ClientWorld> {
           )
         : scale(
             normalize({
-              x: -this.xv,
-              y: -this.playerOptions.flying ? this.yv : 0,
-              z: -this.zv
+              x: -this.velocity.x,
+              y: this.playerOptions.flying ? -this.velocity.y : 0,
+              z: -this.velocity.z
             }),
             this.playerOptions.frictionGround
           )
@@ -125,8 +123,8 @@ export class Player extends Entity<ClientWorld> {
       // In Minecraft, it seems you change direction instantly when on the
       // ground
       if (!this.playerOptions.flying && this.onGround) {
-        this.xv = movementX
-        this.zv = movementZ
+        this.velocity.x = movementX
+        this.velocity.z = movementZ
       } else {
         acceleration.x += movementX
         acceleration.z += movementZ
@@ -143,7 +141,7 @@ export class Player extends Entity<ClientWorld> {
     } else {
       acceleration.y = this.playerOptions.gravity
       if (this.input.keys.jump && this.onGround) {
-        this.yv = this.playerOptions.jumpVel
+        this.velocity.y = this.playerOptions.jumpVel
       }
     }
 

@@ -151,40 +151,48 @@ export class World<T extends Chunk> {
     return [...Object.values(this.#chunkMap), ...Object.values(this.floating)]
   }
 
+  /**
+   * I'm not really sure what to call it, but this just returns the world and
+   * all floating chunks.
+   */
+  realms (): (Partial<LoneId> & { isSolid: (block: Vector3) => boolean })[] {
+    return [
+      { isSolid: this.#isSolid },
+      ...Object.values(this.floating).map(chunk => ({
+        ...('id' in chunk.position ? chunk.position : {}),
+        isSolid: (block: Vector3) => isSolid(chunk.getChecked(block))
+      }))
+    ]
+  }
+
   raycast (
     from: Vector3,
     direction: Vector3,
     maxDistance?: number
   ): WorldRaycastResult | null {
-    const result = raycast(this.#isSolid, from, direction, maxDistance).next()
+    let closest: WorldRaycastResult | null = null
+    let closestDistance = Infinity
 
-    let closest: WorldRaycastResult | null = result.done ? null : result.value
-    let closestDistance = result.done
-      ? Infinity
-      : length(sub(result.value.position, from))
-
-    // Check floating chunks
-    for (const chunk of Object.values(this.floating)) {
-      if ('x' in chunk.position) {
-        continue
-      }
-      const transformation = mat4.inverse(
-        chunk.position.transform ?? mat4.identity<Float32Array>()
-      )
-      const transformedFrom = transform(from, transformation)
+    for (const {
+      id,
+      transform: chunkTransform = mat4.identity(),
+      isSolid
+    } of this.realms()) {
+      const transformation = mat4.inverse(chunkTransform)
+      const start = transform(from, transformation)
       const result = raycast(
-        block => isSolid(chunk.getChecked(block)),
-        transformedFrom,
+        block => isSolid(block),
+        start,
         transform(direction, transformation, false),
         maxDistance
       ).next()
       if (!result.done) {
-        const distance = length(sub(result.value.position, transformedFrom))
+        const distance = length(sub(result.value.position, start))
         if (distance < closestDistance) {
           closest = {
             ...result.value,
-            id: chunk.position.id,
-            transform: chunk.position.transform
+            id,
+            transform: chunkTransform
           }
           closestDistance = distance
         }
