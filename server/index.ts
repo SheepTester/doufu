@@ -63,7 +63,7 @@ export class Server {
         id: 0,
         transform: mat4.translate<Float32Array>(
           mat4.axisRotation([1, 2, 3], Math.PI / 6),
-          [16, 48, 0]
+          [16, 0, 0]
         )
       })
     )

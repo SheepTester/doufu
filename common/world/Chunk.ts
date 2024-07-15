@@ -1,6 +1,6 @@
 import { Mat4 } from 'wgpu-matrix'
 import { SerializedChunk } from '../message'
-import { map, MIDDLE, neighborIndex, Vector3, ZERO } from '../Vector3'
+import { all, map, MIDDLE, neighborIndex, Vector3, ZERO } from '../Vector3'
 import { Block } from './Block'
 
 export const SIZE = 32
@@ -21,6 +21,10 @@ export class Chunk {
     this.neighbors[MIDDLE] = this
   }
 
+  inside (position: Vector3): boolean {
+    return all(position, coord => coord >= 0 && coord < SIZE)
+  }
+
   /**
    * Gets the block at the given chunk-local coordinates. Does not perform any
    * bounds checks.
@@ -35,6 +39,13 @@ export class Chunk {
    */
   set ({ x, y, z }: Vector3, block: Block): void {
     this.data[(x * SIZE + y) * SIZE + z] = block
+  }
+
+  /**
+   * @param defaultBlock Defaults to `Block.AIR`.
+   */
+  getChecked = (position: Vector3, defaultBlock = Block.AIR): Block => {
+    return this.inside(position) ? this.get(position) : defaultBlock
   }
 
   /**

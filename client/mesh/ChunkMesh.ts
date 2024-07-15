@@ -1,6 +1,5 @@
 import {
   add,
-  any,
   map,
   map3,
   MIDDLE,
@@ -46,13 +45,6 @@ export class ChunkMesh extends Chunk {
     this.#lone = 'id' in position
   }
 
-  getOrAir = (position: Vector3): Block => {
-    if (any(position, coord => coord < 0 || coord >= SIZE)) {
-      return Block.AIR
-    }
-    return this.get(position)
-  }
-
   /**
    * Recomputes whether the chunk is entirely air or entirely opaque. This way
    * it doesn't need to be recomputed when the chunk gets remeshed due to a
@@ -95,7 +87,7 @@ export class ChunkMesh extends Chunk {
         i === MIDDLE
           ? this.get
           : this.#lone
-          ? this.getOrAir
+          ? this.getChecked
           : this.getWithNeighbor
       for (let x = xBounds.min; x < xBounds.max; x++) {
         for (let y = yBounds.min; y < yBounds.max; y++) {

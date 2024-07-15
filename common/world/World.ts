@@ -1,3 +1,4 @@
+import { Mat4, mat4 } from 'wgpu-matrix'
 import { raycast, RaycastResult } from '../../client/control/raycast'
 import {
   Vector3Key,
@@ -9,10 +10,18 @@ import {
   add,
   neighborIndex,
   scale,
-  ZERO
+  ZERO,
+  sub,
+  length,
+  transform
 } from '../Vector3'
 import { Block, isSolid } from './Block'
 import { Chunk, LoneId, SIZE } from './Chunk'
+
+export type WorldRaycastResult = RaycastResult & {
+  id?: number
+  transform?: Mat4
+}
 
 export type WorldOptions<T> = {
   createChunk: (position: Vector3 | LoneId) => T
@@ -102,12 +111,15 @@ export class World<T extends Chunk> {
   }
 
   #isSolid = (block: Vector3): boolean => {
-    return isSolid(this.getBlock(block))
+    return isSolid(this.getBlock(block) ?? Block.AIR)
   }
 
   /**
    * Returns the chunk that the block was set in. Does nothing if the chunk
    * doesn't exist.
+   *
+   * Floating chunks do not perform bounds checks.
+   *
    * @param id The floating chunk ID.
    */
   setBlock (
@@ -143,12 +155,42 @@ export class World<T extends Chunk> {
     from: Vector3,
     direction: Vector3,
     maxDistance?: number
-  ): RaycastResult | null {
+  ): WorldRaycastResult | null {
     const result = raycast(this.#isSolid, from, direction, maxDistance).next()
-    if (result.done) {
-      return null
-    } else {
-      return result.value
+
+    let closest: WorldRaycastResult | null = result.done ? null : result.value
+    let closestDistance = result.done
+      ? Infinity
+      : length(sub(result.value.position, from))
+
+    // Check floating chunks
+    for (const chunk of Object.values(this.floating)) {
+      if ('x' in chunk.position) {
+        continue
+      }
+      const transformation = mat4.inverse(
+        chunk.position.transform ?? mat4.identity<Float32Array>()
+      )
+      const transformedFrom = transform(from, transformation)
+      const result = raycast(
+        block => isSolid(chunk.getChecked(block)),
+        transformedFrom,
+        transform(direction, transformation, false),
+        maxDistance
+      ).next()
+      if (!result.done) {
+        const distance = length(sub(result.value.position, transformedFrom))
+        if (distance < closestDistance) {
+          closest = {
+            ...result.value,
+            id: chunk.position.id,
+            transform: chunk.position.transform
+          }
+          closestDistance = distance
+        }
+      }
     }
+
+    return closest
   }
 }

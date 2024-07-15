@@ -6,6 +6,7 @@ import { ClientWorld } from '../render/ClientWorld'
 import { Camera } from './Camera'
 import { RaycastResult } from './raycast'
 import { defaultKeys, InputProvider, KeyInput } from './input'
+import { WorldRaycastResult } from '../../common/world/World'
 
 export type PlayerOptions = {
   /** In m/s. Applied when you walk on the ground. */
@@ -151,7 +152,7 @@ export class Player extends Entity<ClientWorld> {
     this.prevKeys = { ...this.input.keys }
   }
 
-  raycast (): RaycastResult | null {
+  raycast (): WorldRaycastResult | null {
     return this.world.raycast(
       add(this, { y: this.playerOptions.eyeHeight }),
       this.camera.getForward(),
@@ -168,7 +169,7 @@ export class Player extends Entity<ClientWorld> {
       this.world.setBlock(
         result.block,
         this.input.keys.place ? Block.WHITE : Block.AIR,
-        undefined,
+        result.id,
         true
       )
     } else if (this.input.keys.place) {
@@ -183,8 +184,8 @@ export class Player extends Entity<ClientWorld> {
       ) {
         return
       }
-      if (this.world.getBlock(target) === Block.AIR) {
-        this.world.setBlock(target, Block.WHITE, undefined, true)
+      if (this.world.getBlock(target, result.id) === Block.AIR) {
+        this.world.setBlock(target, Block.WHITE, result.id, true)
       }
     }
   }

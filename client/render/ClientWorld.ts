@@ -63,6 +63,8 @@ export class ClientWorld extends World<ClientChunk> {
       const chunk = this.lookup(position)
       if (chunk) {
         chunk.data = data
+        // Update transform
+        chunk.position = position
       }
     }
   }

@@ -160,6 +160,7 @@ export class Game {
       this.#server.connectWorker('./server/worker.js')
     }
 
+    this.#world.ensure({ id: 0 })
     this.#server.send({ type: 'subscribe-chunks', chunks: [{ id: 0 }] })
   }
 
@@ -290,7 +291,10 @@ export class Game {
     if (result) {
       this.#context.voxelOutlineEnabled = true
       this.#context.outlineCommon.uniforms.transform.data(
-        new Float32Array(mat4.translation(toArray(result.block)))
+        mat4.multiply<Float32Array>(
+          result.transform ?? mat4.identity(),
+          mat4.translation(toArray(result.block))
+        )
       )
     } else {
       this.#context.voxelOutlineEnabled = false

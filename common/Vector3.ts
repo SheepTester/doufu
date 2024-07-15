@@ -1,3 +1,5 @@
+import { mat4, Mat4, vec3 } from 'wgpu-matrix'
+
 export type Vector3 = {
   x: number
   y: number
@@ -33,6 +35,13 @@ export function add (
   { x = 0, y = 0, z = 0 }: Partial<Vector3>
 ): Vector3 {
   return { x: v.x + x, y: v.y + y, z: v.z + z }
+}
+
+export function sub (
+  v: Vector3,
+  { x = 0, y = 0, z = 0 }: Partial<Vector3>
+): Vector3 {
+  return { x: v.x - x, y: v.y - y, z: v.z - z }
 }
 
 export function scale ({ x, y, z }: Vector3, factor: number): Vector3 {
@@ -96,17 +105,29 @@ export function length ({ x, y, z }: Vector3): number {
   return Math.hypot(x, y, z)
 }
 
-export function any (
-  { x, y, z }: Vector3,
-  test: (component: number) => boolean
-): boolean {
-  return test(x) || test(y) || test(z)
-}
-
 /** Returns a zero vector for a zero vector */
 export function normalize ({ x, y, z }: Vector3): Vector3 {
   const length = Math.hypot(x, y, z)
   return length === 0 ? ZERO : { x: x / length, y: y / length, z: z / length }
+}
+
+export function all (
+  { x, y, z }: Vector3,
+  test: (component: number) => boolean
+): boolean {
+  return test(x) && test(y) && test(z)
+}
+
+export function transform (
+  { x, y, z }: Vector3,
+  transform: Mat4,
+  translate = true
+): Vector3 {
+  return fromArray(
+    translate
+      ? vec3.transformMat4([x, y, z], transform)
+      : vec3.transformMat4Upper3x3([x, y, z], transform)
+  )
 }
 
 export function sumComponents ({ x, y, z }: Vector3): number {
