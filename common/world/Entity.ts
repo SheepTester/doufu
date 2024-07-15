@@ -80,7 +80,11 @@ export class Entity<W extends World<Chunk> = World<Chunk>> {
       isSolid
     } of this.world.realms()) {
       if (
-        testGround(transform(this, chunkTransform, true), this.options, isSolid)
+        testGround(
+          transform(this, mat4.inverse(chunkTransform), true),
+          this.options,
+          isSolid
+        )
       ) {
         this.onGround = true
         break
