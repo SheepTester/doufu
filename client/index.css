@@ -99,6 +99,27 @@ body {
   display: none;
 }
 
+.button {
+  display: none;
+  width: 80px;
+  height: 80px;
+  border-radius: 4px;
+  background-color: rgba(220, 220, 220, 0.5);
+  border: 1px solid rgba(220, 220, 220, 0.5);
+  position: absolute;
+}
+.touch .button {
+  display: block;
+}
+.up {
+  right: 80px;
+  bottom: 200px;
+}
+.down {
+  right: 80px;
+  bottom: 80px;
+}
+
 #perf {
   position: fixed;
   top: 0;

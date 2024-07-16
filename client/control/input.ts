@@ -132,6 +132,10 @@ export class UserInput implements InputProvider {
     }
     element.addEventListener('pointerup', handlePointerEnd)
     element.addEventListener('pointercancel', handlePointerEnd)
+    // Prevent context menu from showing in Windows
+    document.addEventListener('contextmenu', e => {
+      e.preventDefault()
+    })
 
     element.addEventListener('click', async () => {
       if (lastPointerType === 'mouse') {
@@ -175,7 +179,7 @@ export class UserInput implements InputProvider {
       this.keys = defaultKeys()
     })
 
-    element.after(this.#createJoystick())
+    element.after(this.#createJoystick(), ...this.#createButtons())
   }
 
   #createJoystick () {
@@ -225,11 +229,39 @@ export class UserInput implements InputProvider {
     })
     joystick.addEventListener('pointerup', handleEnd)
     joystick.addEventListener('pointercancel', handleEnd)
-    // Prevent context menu from showing in Windows
-    joystick.addEventListener('contextmenu', e => {
-      e.preventDefault()
-    })
     return joystick
+  }
+
+  #createButtons () {
+    const jump = document.createElement('button')
+    jump.className = 'button up'
+    jump.ariaLabel = 'Jump / Move up'
+
+    const sneak = document.createElement('button')
+    sneak.className = 'button down'
+    sneak.ariaLabel = 'Sneak / Move down'
+
+    for (const { button, key } of [
+      { button: jump, key: 'jump' as const },
+      { button: sneak, key: 'sneak' as const }
+    ]) {
+      button.addEventListener('pointerdown', e => {
+        this.keys[key] = true
+        try {
+          button.setPointerCapture(e.pointerId)
+        } catch (error) {
+          allowDomExceptions(error, ['InvalidStateError'])
+        }
+      })
+      button.addEventListener('pointerup', () => {
+        this.keys[key] = false
+      })
+      button.addEventListener('pointercancel', () => {
+        this.keys[key] = false
+      })
+    }
+
+    return [jump, sneak]
   }
 
   resetCamera (): void {
