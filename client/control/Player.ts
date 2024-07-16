@@ -149,7 +149,8 @@ export class Player extends Entity<ClientWorld> {
 
     if (this.grapple) {
       const diff = sub(this, this.grapple)
-      acceleration = add(acceleration, scale(diff, -3))
+      acceleration = add(acceleration, scale(diff, -4))
+      acceleration = add(acceleration, scale(this.velocity, -2))
     }
 
     this.move(elapsed, acceleration, friction)
