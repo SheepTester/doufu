@@ -26,6 +26,49 @@ body {
   pointer-events: none;
 }
 
+.joystick {
+  display: none;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  position: absolute;
+  left: 30px;
+  bottom: 60px;
+  touch-action: none;
+  --x: 50%;
+  --y: 50%;
+}
+.touch .joystick {
+  display: flex;
+}
+.joystick-dot {
+  flex: auto;
+  border-radius: 50%;
+  background-color: rgba(30, 30, 30, 0.5);
+  border: 1px solid rgba(30, 30, 30, 0.5);
+  margin: 50px;
+  position: relative;
+}
+.joystick-dot::after {
+  content: '';
+  display: block;
+  width: 50px;
+  height: 50px;
+  margin: -25px;
+  border-radius: 50%;
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  background-color: rgba(220, 220, 220, 0.5);
+  border: 1px solid rgba(220, 220, 220, 0.5);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.joystick-active .joystick-dot::after {
+  opacity: 1;
+  transition: none;
+}
+
 #error {
   position: fixed;
   top: 50%;

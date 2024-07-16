@@ -91,7 +91,7 @@ export class Player extends Entity<ClientWorld> {
           )
     let acceleration = { x: 0, y: 0, z: 0 }
 
-    const direction = { x: 0, z: 0 }
+    const direction = { x: this.input.joystick.x, z: this.input.joystick.y }
     if (this.input.keys.left) {
       direction.x -= 1
     }
@@ -112,7 +112,7 @@ export class Player extends Entity<ClientWorld> {
           : this.onGround
           ? this.playerOptions.moveVel
           : this.playerOptions.moveAccelAir) /
-        Math.hypot(direction.x, direction.z)
+        Math.max(Math.hypot(direction.x, direction.z), 1)
       // TODO: idk why yaw needs to be inverted
       const movementX =
         factor *
