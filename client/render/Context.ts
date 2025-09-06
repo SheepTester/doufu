@@ -26,6 +26,12 @@ export type ContextOptions = {
   onGpuTime: (delta: bigint) => void
 }
 
+type Modules = Record<
+  'voxel' | 'outline' | 'model' | 'postprocess',
+  GPUShaderModule
+>
+type Textures = Record<'blocks', Texture>
+
 export async function createContext (
   format: GPUTextureFormat,
   options: Partial<ContextOptions> = {}
@@ -44,65 +50,19 @@ export async function createContext (
 
   const check = captureError(device, 'initialization')
 
-  const voxelModule = await compile(device, voxelCode, 'voxel shader')
-  // Pipeline is like WebGL program; contains the shaders
-  const voxelPipeline = device.createRenderPipeline({
-    label: 'voxel pipeline',
-    layout: 'auto',
-    vertex: {
-      module: voxelModule,
-      entryPoint: 'vertex_main',
-      buffers: [
-        // vertex buffer
-        {
-          // Bytes between the start of each vertex datum
-          arrayStride: 8,
-          // Change attribute per instance rather than vertex
-          stepMode: 'instance',
-          attributes: [{ shaderLocation: 0, offset: 0, format: 'uint32x2' }]
-        }
-      ]
-    },
-    // targets[0] corresponds to @location(0) in fragment_main's return value
-    fragment: {
-      module: voxelModule,
-      entryPoint: 'fragment_main',
-      targets: [
-        {
-          format
-          // blend: {
-          //   color: {
-          //     operation: 'add',
-          //     srcFactor: 'src-alpha',
-          //     dstFactor: 'one-minus-src-alpha'
-          //   },
-          //   alpha: {}
-          // }
-        }
-      ]
-    },
-    primitive: { cullMode: 'back' },
-    depthStencil: {
-      depthWriteEnabled: true,
-      depthCompare: 'less',
-      format: 'depth24plus'
-    }
+  const blockTexture = await loadTexture(device, atlasPath, {
+    // 5 levels (inclusive) from 16x16 to 1x1 per block
+    mipmapLevels: 5
   })
-
-  const { texture, sampler, width, height } = await loadTexture(
-    device,
-    atlasPath,
-    {
-      // 5 levels (inclusive) from 16x16 to 1x1 per block
-      mipmapLevels: 5
-    }
-  )
   const mipmapModule = await compile(device, mipmapCode, 'texture mipmapper')
   const mipmapPipeline = device.createRenderPipeline({
     label: 'mip level generator pipeline',
     layout: 'auto',
     vertex: { module: mipmapModule },
-    fragment: { module: mipmapModule, targets: [{ format: texture.format }] }
+    fragment: {
+      module: mipmapModule,
+      targets: [{ format: blockTexture.texture.format }]
+    }
   })
   const mipmapEncoder = device.createCommandEncoder({
     label: 'mipmap generator encoder'
@@ -110,22 +70,31 @@ export async function createContext (
   const mipmapGroups: Group<{}>[] = []
   for (let i = 0; i < 4; i++) {
     const mipmapUniforms = new Group(device, mipmapPipeline, 0, {
-      sampler: { binding: 0, resource: sampler },
+      sampler: { binding: 0, resource: blockTexture.sampler },
       texture: {
         binding: 1,
-        resource: texture.createView({ baseMipLevel: i, mipLevelCount: 1 })
+        resource: blockTexture.texture.createView({
+          baseMipLevel: i,
+          mipLevelCount: 1
+        })
       },
       outputSize: new Uniform(device, 2, 2 * 4)
     })
     mipmapUniforms.uniforms.outputSize.data(
-      new Float32Array([width >> (i + 1), height >> (i + 1)])
+      new Float32Array([
+        blockTexture.width >> (i + 1),
+        blockTexture.height >> (i + 1)
+      ])
     )
     mipmapGroups.push(mipmapUniforms)
     const pass = mipmapEncoder.beginRenderPass({
       label: 'mipmap render pass',
       colorAttachments: [
         {
-          view: texture.createView({ baseMipLevel: i + 1, mipLevelCount: 1 }),
+          view: blockTexture.texture.createView({
+            baseMipLevel: i + 1,
+            mipLevelCount: 1
+          }),
           loadOp: 'clear',
           storeOp: 'store'
         }
@@ -141,130 +110,49 @@ export async function createContext (
     group.destroy()
   }
 
-  const voxelCommon = new Group(device, voxelPipeline, 0, {
-    perspective: new Uniform(device, 0, 4 * 4 * 4),
-    camera: new Uniform(device, 1, 4 * 4 * 4),
-    sampler: {
-      binding: 2,
-      resource: device.createSampler({ mipmapFilter: 'linear' })
-    },
-    texture: {
-      binding: 3,
-      resource: texture.createView()
-    },
-    textureSize: new Uniform(device, 4, 4 * 2)
-  })
-  voxelCommon.uniforms.textureSize.data(
-    new Float32Array([width / 16, height / 16])
-  )
-
-  const outlineModule = await compile(
-    device,
-    voxelOutlineCode,
-    'voxel outline shader'
-  )
-  const outlinePipeline = device.createRenderPipeline({
-    label: 'voxel outline pipeline',
-    layout: 'auto',
-    vertex: { module: outlineModule, entryPoint: 'vertex_main' },
-    fragment: {
-      module: outlineModule,
-      entryPoint: 'fragment_main',
-      targets: [{ format }]
-    },
-    depthStencil: {
-      depthWriteEnabled: true,
-      depthCompare: 'less',
-      format: 'depth24plus'
-    }
-  })
-  const outlineCommon = new Group(device, outlinePipeline, 0, {
-    perspective: new Uniform(device, 0, 4 * 4 * 4),
-    camera: new Uniform(device, 1, 4 * 4 * 4),
-    transform: new Uniform(device, 2, 4 * 4 * 4),
-    resolution: new Uniform(device, 3, 2 * 4)
-  })
-
-  const modelModule = await compile(device, modelCode, 'entity model shader')
-  const modelPipeline = device.createRenderPipeline({
-    label: 'entity model cube pipeline',
-    layout: 'auto',
-    vertex: {
-      module: modelModule,
-      entryPoint: 'vertex_main',
-      buffers: [
-        {
-          arrayStride: 4 * 4 * 4,
-          stepMode: 'instance',
-          attributes: [
-            { shaderLocation: 0, offset: 0, format: 'float32x4' },
-            { shaderLocation: 1, offset: 4 * 4, format: 'float32x4' },
-            { shaderLocation: 2, offset: 4 * 4 * 2, format: 'float32x4' },
-            { shaderLocation: 3, offset: 4 * 4 * 3, format: 'float32x4' }
-          ]
-        }
-      ]
-    },
-    fragment: {
-      module: modelModule,
-      entryPoint: 'fragment_main',
-      targets: [{ format }]
-    },
-    depthStencil: {
-      depthWriteEnabled: true,
-      depthCompare: 'less',
-      format: 'depth24plus'
-    }
-  })
-  const modelCommon = new Group(device, modelPipeline, 0, {
-    perspective: new Uniform(device, 0, 4 * 4 * 4),
-    camera: new Uniform(device, 1, 4 * 4 * 4)
-  })
-
-  const postprocessModule = await compile(
-    device,
-    postprocessCode,
-    'post-processing shader'
-  )
-  const postprocessPipeline = device.createRenderPipeline({
-    label: 'post-processing pipeline',
-    layout: 'auto',
-    vertex: { module: postprocessModule, entryPoint: 'vertex_main' },
-    fragment: {
-      module: postprocessModule,
-      entryPoint: 'fragment_main',
-      targets: [{ format }]
-    }
-  })
-  const postprocessCommon = new Group(device, postprocessPipeline, 0, {
-    canvasSize: new Uniform(device, 0, 4 * 2),
-    sampler: { binding: 1, resource: sampler }
-  })
+  const modules: Modules = {
+    voxel: await compile(device, voxelCode, 'voxel shader'),
+    outline: await compile(device, voxelOutlineCode, 'voxel outline shader'),
+    model: await compile(device, modelCode, 'entity model shader'),
+    postprocess: await compile(
+      device,
+      postprocessCode,
+      'post-processing shader'
+    )
+  }
+  const textures: Textures = {
+    blocks: blockTexture
+  }
 
   await check()
 
-  return new Context(
-    device,
-    format,
-    voxelCommon,
-    outlineCommon,
-    modelCommon,
-    postprocessCommon,
-    options
-  )
+  return new Context(device, format, modules, textures, options)
 }
 
-export class Context {
+class ContextBase {
   device: GPUDevice
+  format: GPUTextureFormat
+  modules: Modules
+  textures: Textures
+
+  constructor (
+    device: GPUDevice,
+    format: GPUTextureFormat,
+    modules: Modules,
+    textures: Textures
+  ) {
+    this.device = device
+    this.format = format
+    this.modules = modules
+    this.textures = textures
+  }
+}
+
+export class Context extends ContextBase {
   world?: ClientWorld
   models: Model[] = []
 
-  #format: GPUTextureFormat
-  voxelCommon
-  outlineCommon
-  modelCommon
   voxelOutlineEnabled = false
-  #postprocessCommon
   #options: Partial<ContextOptions>
 
   #depthTexture: GPUTexture | null = null
@@ -272,31 +160,164 @@ export class Context {
 
   #timestamp: TimestampCollector | null
 
+  voxelCommon = new Group(
+    this.device,
+    this.device.createRenderPipeline({
+      label: 'voxel pipeline',
+      layout: 'auto',
+      vertex: {
+        module: this.modules.voxel,
+        entryPoint: 'vertex_main',
+        buffers: [
+          // vertex buffer
+          {
+            // Bytes between the start of each vertex datum
+            arrayStride: 8,
+            // Change attribute per instance rather than vertex
+            stepMode: 'instance',
+            attributes: [{ shaderLocation: 0, offset: 0, format: 'uint32x2' }]
+          }
+        ]
+      },
+      // targets[0] corresponds to @location(0) in fragment_main's return value
+      fragment: {
+        module: this.modules.voxel,
+        entryPoint: 'fragment_main',
+        targets: [
+          {
+            format: this.format
+            // blend: {
+            //   color: {
+            //     operation: 'add',
+            //     srcFactor: 'src-alpha',
+            //     dstFactor: 'one-minus-src-alpha'
+            //   },
+            //   alpha: {}
+            // }
+          }
+        ]
+      },
+      primitive: { cullMode: 'back' },
+      depthStencil: {
+        depthWriteEnabled: true,
+        depthCompare: 'less',
+        format: 'depth24plus'
+      }
+    }),
+    0,
+    {
+      perspective: new Uniform(this.device, 0, 4 * 4 * 4),
+      camera: new Uniform(this.device, 1, 4 * 4 * 4),
+      sampler: {
+        binding: 2,
+        resource: this.device.createSampler({ mipmapFilter: 'linear' })
+      },
+      texture: {
+        binding: 3,
+        resource: this.textures.blocks.texture.createView()
+      },
+      textureSize: new Uniform(this.device, 4, 4 * 2)
+    }
+  )
+  outlineCommon = new Group(
+    this.device,
+    this.device.createRenderPipeline({
+      label: 'voxel outline pipeline',
+      layout: 'auto',
+      vertex: { module: this.modules.outline, entryPoint: 'vertex_main' },
+      fragment: {
+        module: this.modules.outline,
+        entryPoint: 'fragment_main',
+        targets: [{ format: this.format }]
+      },
+      depthStencil: {
+        depthWriteEnabled: true,
+        depthCompare: 'less',
+        format: 'depth24plus'
+      }
+    }),
+    0,
+    {
+      perspective: new Uniform(this.device, 0, 4 * 4 * 4),
+      camera: new Uniform(this.device, 1, 4 * 4 * 4),
+      transform: new Uniform(this.device, 2, 4 * 4 * 4),
+      resolution: new Uniform(this.device, 3, 2 * 4)
+    }
+  )
+  modelCommon = new Group(
+    this.device,
+    this.device.createRenderPipeline({
+      label: 'entity model cube pipeline',
+      layout: 'auto',
+      vertex: {
+        module: this.modules.model,
+        entryPoint: 'vertex_main',
+        buffers: [
+          {
+            arrayStride: 4 * 4 * 4,
+            stepMode: 'instance',
+            attributes: [
+              { shaderLocation: 0, offset: 0, format: 'float32x4' },
+              { shaderLocation: 1, offset: 4 * 4, format: 'float32x4' },
+              { shaderLocation: 2, offset: 4 * 4 * 2, format: 'float32x4' },
+              { shaderLocation: 3, offset: 4 * 4 * 3, format: 'float32x4' }
+            ]
+          }
+        ]
+      },
+      fragment: {
+        module: this.modules.model,
+        entryPoint: 'fragment_main',
+        targets: [{ format: this.format }]
+      },
+      depthStencil: {
+        depthWriteEnabled: true,
+        depthCompare: 'less',
+        format: 'depth24plus'
+      }
+    }),
+    0,
+    {
+      perspective: new Uniform(this.device, 0, 4 * 4 * 4),
+      camera: new Uniform(this.device, 1, 4 * 4 * 4)
+    }
+  )
+  #postprocessCommon = new Group(
+    this.device,
+    this.device.createRenderPipeline({
+      label: 'post-processing pipeline',
+      layout: 'auto',
+      vertex: { module: this.modules.postprocess, entryPoint: 'vertex_main' },
+      fragment: {
+        module: this.modules.postprocess,
+        entryPoint: 'fragment_main',
+        targets: [{ format: this.format }]
+      }
+    }),
+    0,
+    {
+      canvasSize: new Uniform(this.device, 0, 4 * 2),
+      sampler: { binding: 1, resource: this.textures.blocks.sampler }
+    }
+  )
+
   constructor (
     device: GPUDevice,
     format: GPUTextureFormat,
-    voxelCommon: Group<{ camera: Uniform; perspective: Uniform }>,
-    outlineCommon: Group<{
-      camera: Uniform
-      perspective: Uniform
-      transform: Uniform
-      resolution: Uniform
-    }>,
-    modelCommon: Group<{
-      camera: Uniform
-      perspective: Uniform
-    }>,
-    postprocessCommon: Group<{ canvasSize: Uniform }>,
+    modules: Modules,
+    textures: Textures,
     options: Partial<ContextOptions>
   ) {
-    this.device = device
-    this.#format = format
-    this.voxelCommon = voxelCommon
-    this.outlineCommon = outlineCommon
-    this.modelCommon = modelCommon
-    this.#postprocessCommon = postprocessCommon
+    super(device, format, modules, textures)
     this.#options = options
     this.#timestamp = options.onGpuTime ? new TimestampCollector(device) : null
+
+    this.voxelCommon.uniforms.textureSize.data(
+      new Float32Array([
+        this.textures.blocks.width / 16,
+        this.textures.blocks.height / 16
+      ])
+    )
   }
 
   async render (canvasTexture: GPUTexture, cameraTransform: Mat4) {
@@ -418,7 +439,7 @@ export class Context {
     this.#screenTexture?.destroy()
     this.#screenTexture = this.device.createTexture({
       size: [width, height],
-      format: this.#format,
+      format: this.format,
       usage:
         GPUTextureUsage.TEXTURE_BINDING |
         GPUTextureUsage.COPY_DST |
@@ -544,10 +565,8 @@ export async function loadTexture (
   const source =
     typeof image === 'string'
       ? await fetch(image)
-          .then(r => r.blob())
-          .then(blob =>
-            createImageBitmap(blob, { colorSpaceConversion: 'none' })
-          )
+        .then(r => r.blob())
+        .then(blob => createImageBitmap(blob, { colorSpaceConversion: 'none' }))
       : image
   const texture = device.createTexture({
     label: 'texture',
