@@ -17,8 +17,8 @@ export class Uniform {
     return { binding: this.#binding, resource: { buffer: this.#buffer } }
   }
 
-  data (data: BufferSource | SharedArrayBuffer, offset = 0): void {
-    this.#device.queue.writeBuffer(this.#buffer, offset, data)
+  data (data: ArrayBufferView, offset = 0): void {
+    this.#device.queue.writeBuffer(this.#buffer, offset, data.buffer)
   }
 
   destroy (): void {

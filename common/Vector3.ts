@@ -125,8 +125,8 @@ export function transform (
 ): Vector3 {
   return fromArray(
     translate
-      ? vec3.transformMat4([x, y, z], transform)
-      : vec3.transformMat4Upper3x3([x, y, z], transform)
+      ? vec3.transformMat4<Float32Array>([x, y, z], transform)
+      : vec3.transformMat4Upper3x3<Float32Array>([x, y, z], transform)
   )
 }
 

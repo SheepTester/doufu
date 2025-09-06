@@ -13,7 +13,7 @@ export class ClientChunk extends Chunk implements Mesh {
   constructor (
     context: Context,
     position: Vector3 | LoneId,
-    data?: Uint8Array
+    data?: Uint8Array<ArrayBuffer>
   ) {
     super(position, data)
     this.#context = context
@@ -41,7 +41,7 @@ export class ClientChunk extends Chunk implements Mesh {
       size: faces.byteLength,
       usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
     })
-    this.#context.device.queue.writeBuffer(this.#vertices, 0, faces)
+    this.#context.device.queue.writeBuffer(this.#vertices, 0, faces.buffer)
   }
 
   render (pass: GPURenderPassEncoder): void {

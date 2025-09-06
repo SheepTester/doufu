@@ -202,11 +202,7 @@ export class Model implements Mesh {
           usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
         })
       }
-      this.#device.queue.writeBuffer(
-        this.#instances,
-        0,
-        new Float32Array(merge(matrices).buffer)
-      )
+      this.#device.queue.writeBuffer(this.#instances, 0, merge(matrices).buffer)
     }
     this.#instanceCount = matrices.length
   }

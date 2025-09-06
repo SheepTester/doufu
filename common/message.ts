@@ -17,7 +17,7 @@ export type ClientMessage =
 
 export type SerializedChunk = {
   position: Vector3 | LoneId
-  data: Uint8Array
+  data: Uint8Array<ArrayBuffer>
 }
 export type SerializedBlock = {
   /** Floating chunk ID */

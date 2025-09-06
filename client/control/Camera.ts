@@ -25,6 +25,8 @@ export class Camera {
 
   /** Normalized forward direction vector */
   getForward (): Vector3 {
-    return fromArray(vec3.transformMat4Upper3x3([0, 0, -1], this.transform()))
+    return fromArray(
+      vec3.transformMat4Upper3x3<Float32Array>([0, 0, -1], this.transform())
+    )
   }
 }

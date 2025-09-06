@@ -40,7 +40,7 @@ export class ChunkMesh extends Chunk {
   #isEntirelyAir = false
   #isEntirelyOpaque = false
 
-  constructor (position: Vector3 | LoneId, data?: Uint8Array) {
+  constructor (position: Vector3 | LoneId, data?: Uint8Array<ArrayBuffer>) {
     super(position, data)
     this.#lone = 'id' in position
   }
@@ -66,7 +66,7 @@ export class ChunkMesh extends Chunk {
    * Assumes that at least one part of the chunk is dirty, i.e. a block has
    * changed.
    */
-  generateMesh (): Uint8Array {
+  generateMesh (): Uint8Array<ArrayBuffer> {
     // Skip if chunk is entirely air
     if (this.#isEntirelyAir) {
       return new Uint8Array()
@@ -87,8 +87,8 @@ export class ChunkMesh extends Chunk {
         i === MIDDLE
           ? this.get
           : this.#lone
-          ? this.getChecked
-          : this.getWithNeighbor
+            ? this.getChecked
+            : this.getWithNeighbor
       for (let x = xBounds.min; x < xBounds.max; x++) {
         for (let y = yBounds.min; y < yBounds.max; y++) {
           for (let z = zBounds.min; z < zBounds.max; z++) {
@@ -127,30 +127,30 @@ export class ChunkMesh extends Chunk {
                       ) +
                       (normal.x === 0
                         ? +isOpaque(
-                            getNeighbor({
-                              x: x + (normal.x || (corner.x ? 1 : -1)),
-                              y: y + normal.y,
-                              z: z + normal.z
-                            })
-                          )
+                          getNeighbor({
+                            x: x + (normal.x || (corner.x ? 1 : -1)),
+                            y: y + normal.y,
+                            z: z + normal.z
+                          })
+                        )
                         : 0) +
                       (normal.y === 0
                         ? +isOpaque(
-                            getNeighbor({
-                              x: x + normal.x,
-                              y: y + (normal.y || (corner.y ? 1 : -1)),
-                              z: z + normal.z
-                            })
-                          )
+                          getNeighbor({
+                            x: x + normal.x,
+                            y: y + (normal.y || (corner.y ? 1 : -1)),
+                            z: z + normal.z
+                          })
+                        )
                         : 0) +
                       (normal.z === 0
                         ? +isOpaque(
-                            getNeighbor({
-                              x: x + normal.x,
-                              y: y + normal.y,
-                              z: z + (normal.z || (corner.z ? 1 : -1))
-                            })
-                          )
+                          getNeighbor({
+                            x: x + normal.x,
+                            y: y + normal.y,
+                            z: z + (normal.z || (corner.z ? 1 : -1))
+                          })
+                        )
                         : 0)
                     ao |= opaques << (i * 2)
                   }
@@ -185,8 +185,8 @@ function getFaceVertex (face: number, index: number): Vector3 {
     face & 4 // 10x: bottom/top
       ? { x: flipped.x, y: flipped.z, z: 1.0 - flipped.y }
       : face & 2 // 01x: left/right
-      ? { x: flipped.z, y: flipped.y, z: 1.0 - flipped.x } // 00x: back/front
-      : flipped
+        ? { x: flipped.z, y: flipped.y, z: 1.0 - flipped.x } // 00x: back/front
+        : flipped
   return rotated
 }
 

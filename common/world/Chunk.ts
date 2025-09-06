@@ -9,7 +9,7 @@ export type LoneId = { id: number; transform?: Mat4 }
 
 export class Chunk {
   position: Vector3 | LoneId
-  data: Uint8Array
+  data: Uint8Array<ArrayBuffer>
   neighbors: (Chunk | null)[] = Array.from({ length: 27 }, () => null)
 
   constructor (
