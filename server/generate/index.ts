@@ -1,6 +1,6 @@
 import { createNoise2D, createNoise3D } from 'simplex-noise'
 import { Connection } from '../../client/net/Connection'
-import { Vector3 } from '../../common/Vector3'
+import { add, Vector3 } from '../../common/Vector3'
 import { Block } from '../../common/world/Block'
 import { Chunk, SIZE } from '../../common/world/Chunk'
 import { WorldGenMessage, WorldGenRequest } from './message'
@@ -35,6 +35,7 @@ function generateChunk (position: Vector3): Chunk {
   const relativeSeaLevel = 10 - position.y * SIZE
 
   const chunk = new Chunk(position)
+  const treeSpawns: Vector3[] = []
   for (let x = 0; x < SIZE; x++) {
     for (let z = 0; z < SIZE; z++) {
       const elevation =
@@ -46,14 +47,19 @@ function generateChunk (position: Vector3): Chunk {
         20
       const relativeElevation = Math.floor(elevation) - position.y * SIZE
       const rand = Alea(SEED, x, z)
-      const shouldSpawnTree =
-        relativeElevation >= relativeSeaLevel &&
-        rand.next() <
-          treeChances(
-            (position.x * SIZE + x) / 60,
-            (position.z * SIZE + z) / 60
-          ) *
-            0.05
+      if (0 <= relativeElevation && relativeElevation < SIZE) {
+        const shouldSpawnTree =
+          relativeElevation >= relativeSeaLevel &&
+          rand.next() <
+            treeChances(
+              (position.x * SIZE + x) / 60,
+              (position.z * SIZE + z) / 60
+            ) *
+              0.05
+        if (shouldSpawnTree) {
+          treeSpawns.push({ x, y: relativeElevation, z })
+        }
+      }
       for (let y = 0; y < SIZE; y++) {
         if (y <= relativeElevation - 4) {
           chunk.set({ x, y, z }, Block.STONE)
@@ -62,18 +68,10 @@ function generateChunk (position: Vector3): Chunk {
         } else if (y <= relativeElevation) {
           chunk.set(
             { x, y, z },
-            relativeElevation < relativeSeaLevel
-              ? Block.DIRT
-              : shouldSpawnTree
-              ? Block.LOG
-              : Block.GRASS
+            relativeElevation < relativeSeaLevel ? Block.DIRT : Block.GRASS
           )
         } else if (y <= relativeSeaLevel) {
           chunk.set({ x, y, z }, Block.GLASS)
-        } else if (shouldSpawnTree && y <= relativeElevation + 1) {
-          chunk.set({ x, y, z }, Block.LOG)
-        } else if (shouldSpawnTree && y <= relativeElevation + 4) {
-          chunk.set({ x, y, z }, Block.LEAVES)
         } else {
           const scale = 100
           const islandness =
@@ -97,6 +95,28 @@ function generateChunk (position: Vector3): Chunk {
         }
       }
     }
+  }
+  // TODO: does no bound checks
+  for (const base of treeSpawns) {
+    const rand = Alea(`${SEED}-tree`, base.x, base.z)
+    const leavesHeight = rand.next() * 3 + 2
+    const trunkHeight = rand.next() * 2 + 1
+    for (let i = 0; i < trunkHeight + leavesHeight; i++) {
+      if (i >= trunkHeight) {
+        for (let x = -2; x <= 2; x++) {
+          for (let z = -2; z <= 2; z++) {
+            const radius = 5 + rand.next() * 1.5 - (i - trunkHeight) / 2
+            if (x * x + z * z <= radius) {
+              chunk.set(add(base, { x, y: i, z }), Block.LEAVES)
+            }
+          }
+        }
+      }
+      if (i < trunkHeight + leavesHeight - 1) {
+        chunk.set(add(base, { y: i }), Block.LOG)
+      }
+    }
+    chunk.set(add(base, { y: -1 }), Block.GRASS)
   }
   return chunk
 }
