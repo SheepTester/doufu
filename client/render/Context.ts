@@ -78,15 +78,14 @@ export async function createContext (
   const mipmapGroups: Group<{}>[] = []
   for (let i = 0; i < 4; i++) {
     const mipmapUniforms = new Group(device, mipmapPipeline, 0, {
-      sampler: { binding: 0, resource: blockTexture.sampler },
+      sampler: { resource: blockTexture.sampler },
       texture: {
-        binding: 1,
         resource: blockTexture.texture.createView({
           baseMipLevel: i,
           mipLevelCount: 1
         })
       },
-      outputSize: new Uniform(device, 2, 2 * 4)
+      outputSize: new Uniform(device, 2 * 4)
     })
     mipmapUniforms.uniforms.outputSize.data(
       new Float32Array([
@@ -165,6 +164,9 @@ export class Context extends ContextBase {
 
   #timestamp: TimestampCollector | null
 
+  #perspective = new Uniform(this.device, 4 * 4 * 4)
+  #camera = new Uniform(this.device, 4 * 4 * 4)
+  #canvasSize = new Uniform(this.device, 4 * 2)
   voxelCommon = new Group(
     this.device,
     this.device.createRenderPipeline({
@@ -211,17 +213,15 @@ export class Context extends ContextBase {
     }),
     0,
     {
-      perspective: new Uniform(this.device, 0, 4 * 4 * 4),
-      camera: new Uniform(this.device, 1, 4 * 4 * 4),
+      perspective: this.#perspective,
+      camera: this.#camera,
       sampler: {
-        binding: 2,
         resource: this.device.createSampler({ mipmapFilter: 'linear' })
       },
       texture: {
-        binding: 3,
         resource: this.textures.blocks.texture.createView()
       },
-      textureSize: new Uniform(this.device, 4, 4 * 2)
+      textureSize: new Uniform(this.device, 4 * 2)
     }
   )
   #linePipelineDescriptor: GPURenderPipelineDescriptor = {
@@ -243,11 +243,11 @@ export class Context extends ContextBase {
     }
   }
   #lineUniforms = {
-    perspective: new Uniform(this.device, 0, 4 * 4 * 4),
-    camera: new Uniform(this.device, 1, 4 * 4 * 4),
-    aspectRatioThickness: new Uniform(this.device, 2, 2 * 4)
+    perspective: this.#perspective,
+    camera: this.#camera,
+    aspectRatioThickness: new Uniform(this.device, 2 * 4)
   }
-  lineMeasureDepthCommon = new Group(
+  #lineMeasureDepthCommon = new Group(
     this.device,
     this.device.createRenderPipeline({
       ...this.#linePipelineDescriptor,
@@ -262,7 +262,7 @@ export class Context extends ContextBase {
     0,
     this.#lineUniforms
   )
-  lineDrawCommon = new Group(
+  #lineDrawCommon = new Group(
     this.device,
     this.device.createRenderPipeline({
       ...this.#linePipelineDescriptor,
@@ -314,10 +314,7 @@ export class Context extends ContextBase {
       }
     }),
     0,
-    {
-      perspective: new Uniform(this.device, 0, 4 * 4 * 4),
-      camera: new Uniform(this.device, 1, 4 * 4 * 4)
-    }
+    { perspective: this.#perspective, camera: this.#camera }
   )
   #postprocessCommon = new Group(
     this.device,
@@ -333,8 +330,8 @@ export class Context extends ContextBase {
     }),
     0,
     {
-      canvasSize: new Uniform(this.device, 0, 4 * 2),
-      sampler: { binding: 1, resource: this.textures.blocks.sampler }
+      canvasSize: this.#canvasSize,
+      sampler: { resource: this.textures.blocks.sampler }
     }
   )
 
@@ -365,9 +362,7 @@ export class Context extends ContextBase {
     const check = captureError(this.device, 'render')
 
     const camera = new Float32Array(cameraTransform)
-    this.voxelCommon.uniforms.camera.data(camera)
-    this.#lineUniforms.camera.data(camera)
-    this.modelCommon.uniforms.camera.data(camera)
+    this.#camera.data(camera)
 
     // Encodes commands
     const encoder = this.device.createCommandEncoder({
@@ -392,8 +387,8 @@ export class Context extends ContextBase {
             }
             : undefined
         })
-        passDepth.setPipeline(this.lineMeasureDepthCommon.pipeline)
-        passDepth.setBindGroup(0, this.lineMeasureDepthCommon.group)
+        passDepth.setPipeline(this.#lineMeasureDepthCommon.pipeline)
+        passDepth.setBindGroup(0, this.#lineMeasureDepthCommon.group)
         passDepth.setVertexBuffer(0, this.#lines)
         passDepth.draw(6, this.#lineCount)
         passDepth.end()
@@ -431,8 +426,8 @@ export class Context extends ContextBase {
         }
       }
       if (this.#lines) {
-        pass.setPipeline(this.lineDrawCommon.pipeline)
-        pass.setBindGroup(0, this.lineDrawCommon.group)
+        pass.setPipeline(this.#lineDrawCommon.pipeline)
+        pass.setBindGroup(0, this.#lineDrawCommon.group)
         pass.setVertexBuffer(0, this.#lines)
         pass.draw(6, this.#lineCount)
       }
@@ -464,7 +459,7 @@ export class Context extends ContextBase {
       pass.setBindGroup(
         1,
         new Group(this.device, this.#postprocessCommon.pipeline, 1, {
-          texture: { binding: 0, resource: this.#screenTexture.createView() }
+          texture: { resource: this.#screenTexture.createView() }
         }).group
       )
       pass.draw(6)
@@ -483,17 +478,12 @@ export class Context extends ContextBase {
   }
 
   resize (width: number, height: number, dpr: number): void {
-    const perspective = new Float32Array(
-      mat4.perspective(Math.PI / 2, width / height, 0.1, 1000)
+    this.#perspective.data(
+      new Float32Array(mat4.perspective(Math.PI / 2, width / height, 0.1, 1000))
     )
-    this.voxelCommon.uniforms.perspective.data(perspective)
-    this.#lineUniforms.perspective.data(perspective)
+    this.#canvasSize.data(new Float32Array([width, height]))
     this.#lineUniforms.aspectRatioThickness.data(
       new Float32Array([width / height, dpr])
-    )
-    this.modelCommon.uniforms.perspective.data(perspective)
-    this.#postprocessCommon.uniforms.canvasSize.data(
-      new Float32Array([width, height])
     )
 
     this.#depthTexture?.destroy()

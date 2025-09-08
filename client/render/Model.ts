@@ -168,9 +168,9 @@ export class Model implements Mesh {
       context.modelCommon.pipeline,
       1,
       {
-        textureSize: new Uniform(context.device, 0, 4 * 2),
-        sampler: { binding: 1, resource: sampler },
-        texture: { binding: 2, resource: texture.createView() }
+        textureSize: new Uniform(context.device, 4 * 2),
+        sampler: { resource: sampler },
+        texture: { resource: texture.createView() }
       }
     )
     this.#allCubes.uniforms.textureSize.data(
@@ -264,9 +264,9 @@ export async function fromBedrockModel (
                   context.modelCommon.pipeline,
                   2,
                   {
-                    cubeTransform: new Uniform(context.device, 0, 4 * 4 * 4),
-                    uv: new Uniform(context.device, 1, 4 * 2),
-                    cubeSize: new Uniform(context.device, 2, 4 * 3)
+                    cubeTransform: new Uniform(context.device, 4 * 4 * 4),
+                    uv: new Uniform(context.device, 4 * 2),
+                    cubeSize: new Uniform(context.device, 4 * 3)
                   }
                 )
                 group.uniforms.cubeTransform.data(transform)

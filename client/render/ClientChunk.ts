@@ -21,7 +21,7 @@ export class ClientChunk extends Chunk implements Mesh {
       context.device,
       context.voxelCommon.pipeline,
       1,
-      { transform: new Uniform(context.device, 0, 4 * 4 * 4) }
+      { transform: new Uniform(context.device, 4 * 4 * 4) }
     )
     if ('x' in position) {
       this.#chunkGroup.uniforms.transform.data(

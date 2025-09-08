@@ -81,7 +81,7 @@ export class Entity<W extends World<Chunk> = World<Chunk>> {
     } of this.world.realms()) {
       if (
         testGround(
-          transform(this, mat4.inverse(chunkTransform), true),
+          transform(this, mat4.inverse<Float32Array>(chunkTransform), true),
           this.options,
           isSolid
         )
