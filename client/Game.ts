@@ -283,6 +283,8 @@ export class Game {
   }
 
   #lastRaycastResult: WorldRaycastResult | null = null
+  #lookAtEdgeLines: Line[] = []
+  #hadGrappleLine = false
 
   #paint = () => {
     const start = performance.now()
@@ -299,6 +301,29 @@ export class Game {
       rotationY: this.#player.camera.yaw
     })
     this.#updateSubscription()
+
+    // this could probably be implemented better
+    let shouldSetLines = this.#player.grapple !== null
+    const grappleLine: Line[] = this.#player.grapple
+      ? [
+        {
+          start: add(
+            add(this.#player, { y: this.#player.playerOptions.eyeHeight }),
+            this.#player.camera.getForward()
+          ),
+          end: this.#player.grapple,
+          color: [255, 0, 255]
+        }
+      ]
+      : []
+    if (this.#player.grapple !== null) {
+      if (!this.#hadGrappleLine) {
+        this.#hadGrappleLine = true
+      }
+    } else if (this.#hadGrappleLine) {
+      shouldSetLines = true
+      this.#hadGrappleLine = false
+    }
 
     const result = this.#player.raycast()
     if (result) {
@@ -318,27 +343,32 @@ export class Game {
         const vY = add(v, plusY)
         const vYZ = add(vY, plusZ)
         const vZ = add(v, plusZ)
-        this.#context.setLines(
-          [
-            { start: v, end: vX },
-            { start: vX, end: vXY },
-            { start: v, end: vY },
-            { start: vY, end: vXY },
-            { start: v, end: vZ },
-            { start: vX, end: vXZ },
-            { start: vXY, end: vXYZ },
-            { start: vY, end: vYZ },
-            { start: vZ, end: vXZ },
-            { start: vXZ, end: vXYZ },
-            { start: vZ, end: vYZ },
-            { start: vYZ, end: vXYZ }
-          ].map(({ start, end }) => ({ start, end, color: [255, 255, 0] }))
-        )
+        this.#lookAtEdgeLines = [
+          { start: v, end: vX },
+          { start: vX, end: vXY },
+          { start: v, end: vY },
+          { start: vY, end: vXY },
+          { start: v, end: vZ },
+          { start: vX, end: vXZ },
+          { start: vXY, end: vXYZ },
+          { start: vY, end: vYZ },
+          { start: vZ, end: vXZ },
+          { start: vXZ, end: vXYZ },
+          { start: vZ, end: vYZ },
+          { start: vYZ, end: vXYZ }
+        ].map(({ start, end }) => ({ start, end, color: [255, 255, 0] }))
+        shouldSetLines = true
         this.#lastRaycastResult = result
       }
     } else if (this.#lastRaycastResult !== null) {
-      this.#context.setLines([])
+      this.#lookAtEdgeLines = []
+      shouldSetLines = true
       this.#lastRaycastResult = null
+    } else if (grappleLine.length > 0) {
+      // Grapple line probably changes every frame
+    }
+    if (shouldSetLines) {
+      this.#context.setLines([...grappleLine, ...this.#lookAtEdgeLines])
     }
 
     this.#context
