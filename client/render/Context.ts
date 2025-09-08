@@ -374,7 +374,30 @@ export class Context extends ContextBase {
       label: 'encoder'
     })
     {
-      // You can run multiple render passes
+      const depthView = this.#depthTexture.createView()
+      if (this.#lines) {
+        const passDepth = encoder.beginRenderPass({
+          label: 'depth-only render pass',
+          colorAttachments: [],
+          depthStencilAttachment: {
+            view: depthView,
+            depthClearValue: 1,
+            depthLoadOp: 'clear',
+            depthStoreOp: 'store'
+          },
+          timestampWrites: this.#timestamp
+            ? {
+              querySet: this.#timestamp.querySet,
+              beginningOfPassWriteIndex: 0
+            }
+            : undefined
+        })
+        passDepth.setPipeline(this.lineMeasureDepthCommon.pipeline)
+        passDepth.setBindGroup(0, this.lineMeasureDepthCommon.group)
+        passDepth.setVertexBuffer(0, this.#lines)
+        passDepth.draw(6, this.#lineCount)
+        passDepth.end()
+      }
       const pass = encoder.beginRenderPass({
         label: 'voxel render pass',
         colorAttachments: [
@@ -386,19 +409,19 @@ export class Context extends ContextBase {
           }
         ],
         depthStencilAttachment: {
-          view: this.#depthTexture.createView(),
-          depthClearValue: 1.0,
-          depthLoadOp: 'clear',
+          view: depthView,
+          depthClearValue: 1,
+          depthLoadOp: this.#lines ? 'load' : 'clear',
           depthStoreOp: 'store'
         },
-        timestampWrites: this.#timestamp?.getTimestampWrites()
+        timestampWrites: this.#timestamp
+          ? {
+            querySet: this.#timestamp.querySet,
+            beginningOfPassWriteIndex: this.#lines ? undefined : 0,
+            endOfPassWriteIndex: 1
+          }
+          : undefined
       })
-      if (this.#lines) {
-        pass.setPipeline(this.lineMeasureDepthCommon.pipeline)
-        pass.setBindGroup(0, this.lineMeasureDepthCommon.group)
-        pass.setVertexBuffer(0, this.#lines)
-        pass.draw(6, this.#lineCount)
-      }
       const chunks = this.world?.chunks() ?? []
       if (chunks.length > 0) {
         pass.setPipeline(this.voxelCommon.pipeline)
@@ -554,17 +577,17 @@ function captureError (device: GPUDevice, stage: string): () => Promise<void> {
 }
 
 class TimestampCollector {
-  #querySet: GPUQuerySet
+  querySet: GPUQuerySet
   #resolveBuffer: GPUBuffer
   #resultBuffer: GPUBuffer
 
   constructor (device: GPUDevice) {
-    this.#querySet = device.createQuerySet({
+    this.querySet = device.createQuerySet({
       type: 'timestamp',
       count: 2
     })
     this.#resolveBuffer = device.createBuffer({
-      size: this.#querySet.count * 8,
+      size: this.querySet.count * 8,
       usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC
     })
     this.#resultBuffer = device.createBuffer({
@@ -573,19 +596,11 @@ class TimestampCollector {
     })
   }
 
-  getTimestampWrites (): GPURenderPassTimestampWrites {
-    return {
-      querySet: this.#querySet,
-      beginningOfPassWriteIndex: 0,
-      endOfPassWriteIndex: 1
-    }
-  }
-
   copyBuffer (encoder: GPUCommandEncoder): void {
     encoder.resolveQuerySet(
-      this.#querySet,
+      this.querySet,
       0,
-      this.#querySet.count,
+      this.querySet.count,
       this.#resolveBuffer,
       0
     )
@@ -624,7 +639,10 @@ async function compile (
     console.error(messages)
     throw new SyntaxError(
       `${label} failed to compile.\n\n${messages
-        .map(message => message.message)
+        .map(
+          ({ message, lineNum, linePos }) =>
+            `${label}:${lineNum}:${linePos}: ${message}`
+        )
         .join('\n')}`
     )
   }

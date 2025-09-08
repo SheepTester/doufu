@@ -21,8 +21,8 @@ fn vertex_main(
     @location(2) color: u32,
 ) -> VertexOutput {
     let pv = perspective * camera;
-    let start_projected = pv * start;
-    let end_projected = pv * end;
+    let start_projected = pv * vec4(start, 1.0);
+    let end_projected = pv * vec4(end, 1.0);
 
     let delta = (end_projected.xy - end_projected.xy) * vec2(aspect_ratio_thickness.x, 1.0);
     let forward = delta / length(delta);
@@ -32,7 +32,7 @@ fn vertex_main(
     let base = select(start_projected, end_projected, vertex.x > 0.0);
 
     return VertexOutput(
-        vec3(base.xy + up * vertex.y, base.wz),
+        vec4(base.xy + up * vertex.y, base.wz),
         vec3(
             f32(color >> 16) / 255.0,
             f32((color >> 8) & 0xff) / 255.0,

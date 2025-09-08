@@ -301,14 +301,12 @@ export class Game {
     this.#updateSubscription()
 
     const result = this.#player.raycast()
-    if (
-      result?.id !== this.#lastRaycastResult?.id ||
-      (result &&
-        this.#lastRaycastResult &&
-        !equal(result.block, this.#lastRaycastResult.block))
-    ) {
-      this.#lastRaycastResult = result
-      if (result) {
+    if (result) {
+      if (
+        !this.#lastRaycastResult ||
+        result.id !== this.#lastRaycastResult.id ||
+        !equal(result.block, this.#lastRaycastResult.block)
+      ) {
         const plusX = transform({ x: 1, y: 0, z: 0 }, result.transform, false)
         const plusY = transform({ x: 0, y: 1, z: 0 }, result.transform, false)
         const plusZ = transform({ x: 0, y: 0, z: 1 }, result.transform, false)
@@ -336,9 +334,11 @@ export class Game {
             { start: vYZ, end: vXYZ }
           ].map(({ start, end }) => ({ start, end, color: [0, 0, 0] }))
         )
-      } else {
-        this.#context.setLines([])
+        this.#lastRaycastResult = result
       }
+    } else if (this.#lastRaycastResult !== null) {
+      this.#context.setLines([])
+      this.#lastRaycastResult = null
     }
 
     this.#context
