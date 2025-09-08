@@ -5,8 +5,8 @@ struct VertexOutput {
 
 @group(0) @binding(0) var<uniform> perspective: mat4x4<f32>;
 @group(0) @binding(1) var<uniform> camera: mat4x4<f32>;
-// aspect ratio, thickness
-@group(0) @binding(2) var<uniform> aspect_ratio_thickness: vec2<f32>;
+// in CSS pixels (i.e. without DPR)
+@group(0) @binding(2) var<uniform> canvas_size: vec2<f32>;
 
 const square_vertices = array(
     vec2(-0.5, -0.5), vec2(-0.5, 0.5), vec2(0.5, 0.5),
@@ -21,18 +21,22 @@ fn vertex_main(
     @location(2) color: u32,
 ) -> VertexOutput {
     let pv = perspective * camera;
-    let start_projected = pv * vec4(start, 1.0);
-    let end_projected = pv * vec4(end, 1.0);
+    var start_projected = pv * vec4(start, 1.0);
+    start_projected /= start_projected.w;
+    var end_projected = pv * vec4(end, 1.0);
+    end_projected /= end_projected.w;
 
-    let delta = (end_projected.xy - end_projected.xy) * vec2(aspect_ratio_thickness.x, 1.0);
+    // in CSS pixels
+    let delta = (end_projected.xy - start_projected.xy) * canvas_size;
     let forward = delta / length(delta);
-    let up = vec2(forward.y, -forward.x) * aspect_ratio_thickness.y / vec2(aspect_ratio_thickness.x, 1.0);
+    // back to screen space (thickness of 2 pixels)
+    let up = vec2(forward.y, -forward.x) * 2.0 / canvas_size;
 
     let vertex = square_vertices[vertex_index];
     let base = select(start_projected, end_projected, vertex.x > 0.0);
 
     return VertexOutput(
-        vec4(base.xy + up * vertex.y, base.wz),
+        vec4(base.xy + up * vertex.y, base.zw),
         vec3(
             f32(color >> 16) / 255.0,
             f32((color >> 8) & 0xff) / 255.0,

@@ -245,7 +245,7 @@ export class Context extends ContextBase {
   #lineUniforms = {
     perspective: this.#perspective,
     camera: this.#camera,
-    aspectRatioThickness: new Uniform(this.device, 2 * 4)
+    canvasSize: this.#canvasSize
   }
   #lineMeasureDepthCommon = new Group(
     this.device,
@@ -254,7 +254,7 @@ export class Context extends ContextBase {
       label: 'voxel outline pipeline',
       // omit fragment to not set color
       depthStencil: {
-        depthWriteEnabled: false,
+        depthWriteEnabled: true,
         depthCompare: 'less',
         format: 'depth24plus'
       }
@@ -273,7 +273,7 @@ export class Context extends ContextBase {
         targets: [{ format: this.format }]
       },
       depthStencil: {
-        depthWriteEnabled: true,
+        depthWriteEnabled: false,
         depthCompare: 'less-equal',
         format: 'depth24plus'
       }
@@ -477,14 +477,12 @@ export class Context extends ContextBase {
     await check()
   }
 
+  /** width and height are in screen pixels (i.e. CSS pixels * DPR) */
   resize (width: number, height: number, dpr: number): void {
     this.#perspective.data(
       new Float32Array(mat4.perspective(Math.PI / 2, width / height, 0.1, 1000))
     )
-    this.#canvasSize.data(new Float32Array([width, height]))
-    this.#lineUniforms.aspectRatioThickness.data(
-      new Float32Array([width / height, dpr])
-    )
+    this.#canvasSize.data(new Float32Array([width / dpr, height / dpr]))
 
     this.#depthTexture?.destroy()
     this.#depthTexture = this.device.createTexture({

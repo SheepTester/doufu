@@ -316,7 +316,7 @@ export class Game {
         const vXYZ = add(vXY, plusZ)
         const vXZ = add(vX, plusZ)
         const vY = add(v, plusY)
-        const vYZ = add(v, plusZ)
+        const vYZ = add(vY, plusZ)
         const vZ = add(v, plusZ)
         this.#context.setLines(
           [
@@ -326,13 +326,13 @@ export class Game {
             { start: vY, end: vXY },
             { start: v, end: vZ },
             { start: vX, end: vXZ },
-            { start: v, end: vZ },
+            { start: vXY, end: vXYZ },
             { start: vY, end: vYZ },
             { start: vZ, end: vXZ },
             { start: vXZ, end: vXYZ },
             { start: vZ, end: vYZ },
             { start: vYZ, end: vXYZ }
-          ].map(({ start, end }) => ({ start, end, color: [0, 0, 0] }))
+          ].map(({ start, end }) => ({ start, end, color: [255, 255, 0] }))
         )
         this.#lastRaycastResult = result
       }
