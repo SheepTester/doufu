@@ -1,6 +1,8 @@
-import { Mat4, mat4 } from 'wgpu-matrix'
+import { Mat4, mat4, Vec3 } from 'wgpu-matrix'
 import atlasPath from '../asset/atlas.png'
+import { ClientWorld } from './ClientWorld'
 import { Group } from './Group'
+import lineCode from './line.wgsl'
 import mipmapCode from './mipmap.wgsl'
 import { Model } from './Model'
 import modelCode from './model-cube.wgsl'
@@ -8,10 +10,16 @@ import postprocessCode from './postprocess.wgsl'
 import { Uniform } from './Uniform'
 import voxelOutlineCode from './voxel-outline.wgsl'
 import voxelCode from './voxel.wgsl'
-import { ClientWorld } from './ClientWorld'
+import { Vector3 } from '../../common/Vector3'
 
 export interface Mesh {
   render(pass: GPURenderPassEncoder): void
+}
+
+export type Line = {
+  start: Vector3
+  end: Vector3
+  color: [r: number, g: number, b: number]
 }
 
 export type Texture = {
@@ -27,7 +35,7 @@ export type ContextOptions = {
 }
 
 type Modules = Record<
-  'voxel' | 'outline' | 'model' | 'postprocess',
+  'voxel' | 'line' | 'model' | 'postprocess',
   GPUShaderModule
 >
 type Textures = Record<'blocks', Texture>
@@ -54,7 +62,7 @@ export async function createContext (
     // 5 levels (inclusive) from 16x16 to 1x1 per block
     mipmapLevels: 5
   })
-  const mipmapModule = await compile(device, mipmapCode, 'texture mipmapper')
+  const mipmapModule = await compile(device, mipmapCode, 'mipmap.wgsl')
   const mipmapPipeline = device.createRenderPipeline({
     label: 'mip level generator pipeline',
     layout: 'auto',
@@ -111,14 +119,10 @@ export async function createContext (
   }
 
   const modules: Modules = {
-    voxel: await compile(device, voxelCode, 'voxel shader'),
-    outline: await compile(device, voxelOutlineCode, 'voxel outline shader'),
-    model: await compile(device, modelCode, 'entity model shader'),
-    postprocess: await compile(
-      device,
-      postprocessCode,
-      'post-processing shader'
-    )
+    voxel: await compile(device, voxelCode, 'voxel.wgsl'),
+    line: await compile(device, lineCode, 'line.wgsl'),
+    model: await compile(device, modelCode, 'model-cube.wgsl'),
+    postprocess: await compile(device, postprocessCode, 'postprocess.wgsl')
   }
   const textures: Textures = {
     blocks: blockTexture
@@ -152,7 +156,8 @@ export class Context extends ContextBase {
   world?: ClientWorld
   models: Model[] = []
 
-  voxelOutlineEnabled = false
+  #lines: GPUBuffer | null = null
+  #lineCount = 0
   #options: Partial<ContextOptions>
 
   #depthTexture: GPUTexture | null = null
@@ -219,30 +224,62 @@ export class Context extends ContextBase {
       textureSize: new Uniform(this.device, 4, 4 * 2)
     }
   )
-  outlineCommon = new Group(
+  #linePipelineDescriptor: GPURenderPipelineDescriptor = {
+    layout: 'auto',
+    vertex: {
+      module: this.modules.line,
+      entryPoint: 'vertex_main',
+      buffers: [
+        {
+          arrayStride: 8 * 4,
+          stepMode: 'instance',
+          attributes: [
+            { shaderLocation: 0, offset: 0, format: 'float32x3' },
+            { shaderLocation: 1, offset: 3 * 4, format: 'float32x3' },
+            { shaderLocation: 2, offset: 6 * 4, format: 'uint32' }
+          ]
+        }
+      ]
+    }
+  }
+  #lineUniforms = {
+    perspective: new Uniform(this.device, 0, 4 * 4 * 4),
+    camera: new Uniform(this.device, 1, 4 * 4 * 4),
+    aspectRatioThickness: new Uniform(this.device, 2, 2 * 4)
+  }
+  lineMeasureDepthCommon = new Group(
     this.device,
     this.device.createRenderPipeline({
+      ...this.#linePipelineDescriptor,
       label: 'voxel outline pipeline',
-      layout: 'auto',
-      vertex: { module: this.modules.outline, entryPoint: 'vertex_main' },
-      fragment: {
-        module: this.modules.outline,
-        entryPoint: 'fragment_main',
-        targets: [{ format: this.format }]
-      },
+      // omit fragment to not set color
       depthStencil: {
-        depthWriteEnabled: true,
+        depthWriteEnabled: false,
         depthCompare: 'less',
         format: 'depth24plus'
       }
     }),
     0,
-    {
-      perspective: new Uniform(this.device, 0, 4 * 4 * 4),
-      camera: new Uniform(this.device, 1, 4 * 4 * 4),
-      transform: new Uniform(this.device, 2, 4 * 4 * 4),
-      resolution: new Uniform(this.device, 3, 2 * 4)
-    }
+    this.#lineUniforms
+  )
+  lineDrawCommon = new Group(
+    this.device,
+    this.device.createRenderPipeline({
+      ...this.#linePipelineDescriptor,
+      label: 'voxel outline pipeline',
+      fragment: {
+        module: this.modules.line,
+        entryPoint: 'fragment_main',
+        targets: [{ format: this.format }]
+      },
+      depthStencil: {
+        depthWriteEnabled: true,
+        depthCompare: 'less-equal',
+        format: 'depth24plus'
+      }
+    }),
+    0,
+    this.#lineUniforms
   )
   modelCommon = new Group(
     this.device,
@@ -329,7 +366,7 @@ export class Context extends ContextBase {
 
     const camera = new Float32Array(cameraTransform)
     this.voxelCommon.uniforms.camera.data(camera)
-    this.outlineCommon.uniforms.camera.data(camera)
+    this.#lineUniforms.camera.data(camera)
     this.modelCommon.uniforms.camera.data(camera)
 
     // Encodes commands
@@ -356,6 +393,12 @@ export class Context extends ContextBase {
         },
         timestampWrites: this.#timestamp?.getTimestampWrites()
       })
+      if (this.#lines) {
+        pass.setPipeline(this.lineMeasureDepthCommon.pipeline)
+        pass.setBindGroup(0, this.lineMeasureDepthCommon.group)
+        pass.setVertexBuffer(0, this.#lines)
+        pass.draw(6, this.#lineCount)
+      }
       const chunks = this.world?.chunks() ?? []
       if (chunks.length > 0) {
         pass.setPipeline(this.voxelCommon.pipeline)
@@ -364,10 +407,11 @@ export class Context extends ContextBase {
           mesh.render(pass)
         }
       }
-      if (this.voxelOutlineEnabled) {
-        pass.setPipeline(this.outlineCommon.pipeline)
-        pass.setBindGroup(0, this.outlineCommon.group)
-        pass.draw(6, 12)
+      if (this.#lines) {
+        pass.setPipeline(this.lineDrawCommon.pipeline)
+        pass.setBindGroup(0, this.lineDrawCommon.group)
+        pass.setVertexBuffer(0, this.#lines)
+        pass.draw(6, this.#lineCount)
       }
       if (this.models.length > 0) {
         pass.setPipeline(this.modelCommon.pipeline)
@@ -420,9 +464,9 @@ export class Context extends ContextBase {
       mat4.perspective(Math.PI / 2, width / height, 0.1, 1000)
     )
     this.voxelCommon.uniforms.perspective.data(perspective)
-    this.outlineCommon.uniforms.perspective.data(perspective)
-    this.outlineCommon.uniforms.resolution.data(
-      new Float32Array([width / dpr, height / dpr])
+    this.#lineUniforms.perspective.data(perspective)
+    this.#lineUniforms.aspectRatioThickness.data(
+      new Float32Array([width / height, dpr])
     )
     this.modelCommon.uniforms.perspective.data(perspective)
     this.#postprocessCommon.uniforms.canvasSize.data(
@@ -445,6 +489,40 @@ export class Context extends ContextBase {
         GPUTextureUsage.COPY_DST |
         GPUTextureUsage.RENDER_ATTACHMENT
     })
+  }
+
+  /**
+   * potentially a bit expensive, only call if there's been changes
+   */
+  setLines (lines: Line[]) {
+    this.#lines?.destroy()
+    this.#lineCount = lines.length
+    if (lines.length === 0) {
+      this.#lines = null
+      return
+    }
+    const buffer = new DataView(new ArrayBuffer(lines.length * 8 * 4))
+    for (const [i, { start, end, color }] of lines.entries()) {
+      // supposedly WebGPU is always little-endian
+      const offset = i * 8 * 4
+      buffer.setFloat32(offset + 0, start.x, true)
+      buffer.setFloat32(offset + 4, start.y, true)
+      buffer.setFloat32(offset + 8, start.z, true)
+      buffer.setFloat32(offset + 12, end.x, true)
+      buffer.setFloat32(offset + 16, end.y, true)
+      buffer.setFloat32(offset + 20, end.z, true)
+      buffer.setUint32(
+        offset + 24,
+        (color[0] << 16) | (color[1] << 8) | color[2],
+        true
+      )
+    }
+    this.#lines = this.device.createBuffer({
+      label: 'lines vertex buffer',
+      size: buffer.byteLength,
+      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
+    })
+    this.device.queue.writeBuffer(this.#lines, 0, buffer)
   }
 }
 

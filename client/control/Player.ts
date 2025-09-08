@@ -72,23 +72,23 @@ export class Player extends Entity<ClientWorld> {
     const friction =
       this.playerOptions.flying || !this.onGround
         ? scale(
-            {
-              x: this.velocity.x,
-              y: this.playerOptions.flying ? this.velocity.y : 0,
-              z: this.velocity.z
-            },
-            this.playerOptions.flying
-              ? this.playerOptions.frictionCoeffFlying
-              : this.playerOptions.frictionCoeffAir
-          )
+          {
+            x: this.velocity.x,
+            y: this.playerOptions.flying ? this.velocity.y : 0,
+            z: this.velocity.z
+          },
+          this.playerOptions.flying
+            ? this.playerOptions.frictionCoeffFlying
+            : this.playerOptions.frictionCoeffAir
+        )
         : scale(
-            normalize({
-              x: -this.velocity.x,
-              y: this.playerOptions.flying ? -this.velocity.y : 0,
-              z: -this.velocity.z
-            }),
-            this.playerOptions.frictionGround
-          )
+          normalize({
+            x: -this.velocity.x,
+            y: this.playerOptions.flying ? -this.velocity.y : 0,
+            z: -this.velocity.z
+          }),
+          this.playerOptions.frictionGround
+        )
     let acceleration = { x: 0, y: 0, z: 0 }
 
     const direction = { x: this.input.joystick.x, z: this.input.joystick.y }
@@ -110,8 +110,8 @@ export class Player extends Entity<ClientWorld> {
         (this.playerOptions.flying
           ? this.playerOptions.moveAccelFlying
           : this.onGround
-          ? this.playerOptions.moveVel
-          : this.playerOptions.moveAccelAir) /
+            ? this.playerOptions.moveVel
+            : this.playerOptions.moveAccelAir) /
         Math.max(Math.hypot(direction.x, direction.z), 1)
       // TODO: idk why yaw needs to be inverted
       const movementX =
@@ -201,9 +201,7 @@ export class Player extends Entity<ClientWorld> {
     if (this.input.keys.grapple && !this.prevKeys.grapple) {
       this.grapple = !result
         ? null
-        : result.transform
-        ? transform(result.position, result.transform)
-        : result.position
+        : transform(result.position, result.transform)
       console.log('grapple', this.grapple)
     }
 

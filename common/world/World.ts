@@ -19,7 +19,9 @@ import { Block, isSolid } from './Block'
 import { Chunk, LoneId, SIZE } from './Chunk'
 
 export type WorldRaycastResult = RaycastResult & {
+  /** If specified, the ID of a floating chunk */
   id?: number
+  /** If specified, the transformation matrix of a floating chunk */
   transform?: Mat4
 }
 
@@ -165,6 +167,12 @@ export class World<T extends Chunk> {
     ]
   }
 
+  /**
+   * @param from Starting point in global coordinates
+   * @param direction Direction unit vector of ray
+   * @param maxDistance Defaults to 64.
+   * @returns Closest raycast result across all realms.
+   */
   raycast (
     from: Vector3,
     direction: Vector3,

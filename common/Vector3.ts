@@ -118,11 +118,19 @@ export function all (
   return test(x) && test(y) && test(z)
 }
 
+export function equal (a: Vector3, b: Vector3): boolean {
+  return a.x === b.x && a.y === b.y && a.z === b.z
+}
+
 export function transform (
-  { x, y, z }: Vector3,
-  transform: Mat4,
+  v: Vector3,
+  transform?: Mat4,
   translate = true
 ): Vector3 {
+  if (!transform) {
+    return v
+  }
+  const { x, y, z } = v
   return fromArray(
     translate
       ? vec3.transformMat4<Float32Array>([x, y, z], transform)

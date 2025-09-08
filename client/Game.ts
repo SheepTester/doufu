@@ -1,18 +1,27 @@
-import { mat4, Mat4 } from 'wgpu-matrix'
+import { mat4, Mat4, vec3 } from 'wgpu-matrix'
 import {
   ClientMessage,
   decodeServer,
   encode,
   ServerMessage
 } from '../common/message'
-import { length, map2, toArray, Vector3 } from '../common/Vector3'
+import {
+  add,
+  equal,
+  fromArray,
+  length,
+  map2,
+  toArray,
+  transform,
+  Vector3
+} from '../common/Vector3'
 import { SIZE } from '../common/world/Chunk'
 import { Player } from './control/Player'
 import { handleError } from './debug/error'
 import { Connection } from './net/Connection'
 import { ClientChunk } from './render/ClientChunk'
 import { ClientWorld } from './render/ClientWorld'
-import { Context, createContext } from './render/Context'
+import { Context, createContext, Line } from './render/Context'
 
 // TEMP
 import pancakeGeo from './asset/pancake.geo.json'
@@ -20,6 +29,7 @@ import pancakeTexture from './asset/pancake.png'
 import { fromBedrockModel } from './render/Model'
 import { UserInput } from './control/input'
 import { submitSample } from './debug/perf'
+import { WorldRaycastResult } from '../common/world/World'
 
 declare const USE_WS: string | boolean
 
@@ -272,6 +282,8 @@ export class Game {
     }
   }
 
+  #lastRaycastResult: WorldRaycastResult | null = null
+
   #paint = () => {
     const start = performance.now()
 
@@ -289,16 +301,44 @@ export class Game {
     this.#updateSubscription()
 
     const result = this.#player.raycast()
-    if (result) {
-      this.#context.voxelOutlineEnabled = true
-      this.#context.outlineCommon.uniforms.transform.data(
-        mat4.multiply<Float32Array>(
-          result.transform ?? mat4.identity(),
-          mat4.translation(toArray(result.block))
+    if (
+      result?.id !== this.#lastRaycastResult?.id ||
+      (result &&
+        this.#lastRaycastResult &&
+        !equal(result.block, this.#lastRaycastResult.block))
+    ) {
+      this.#lastRaycastResult = result
+      if (result) {
+        const plusX = transform({ x: 1, y: 0, z: 0 }, result.transform, false)
+        const plusY = transform({ x: 0, y: 1, z: 0 }, result.transform, false)
+        const plusZ = transform({ x: 0, y: 0, z: 1 }, result.transform, false)
+        const v = transform(result.block, result.transform)
+        const vX = add(v, plusX)
+        const vXY = add(vX, plusY)
+        const vXYZ = add(vXY, plusZ)
+        const vXZ = add(vX, plusZ)
+        const vY = add(v, plusY)
+        const vYZ = add(v, plusZ)
+        const vZ = add(v, plusZ)
+        this.#context.setLines(
+          [
+            { start: v, end: vX },
+            { start: vX, end: vXY },
+            { start: v, end: vY },
+            { start: vY, end: vXY },
+            { start: v, end: vZ },
+            { start: vX, end: vXZ },
+            { start: v, end: vZ },
+            { start: vY, end: vYZ },
+            { start: vZ, end: vXZ },
+            { start: vXZ, end: vXYZ },
+            { start: vZ, end: vYZ },
+            { start: vYZ, end: vXYZ }
+          ].map(({ start, end }) => ({ start, end, color: [0, 0, 0] }))
         )
-      )
-    } else {
-      this.#context.voxelOutlineEnabled = false
+      } else {
+        this.#context.setLines([])
+      }
     }
 
     this.#context

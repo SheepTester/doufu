@@ -32,6 +32,10 @@ export class ClientChunk extends Chunk implements Mesh {
 
   handleFaces (faces: Uint8Array): void {
     this.#vertices?.destroy()
+    if (faces.length === 0) {
+      this.#vertices = null
+      return
+    }
     this.#vertices = this.#context.device.createBuffer({
       label: `chunk (${
         'id' in this.position

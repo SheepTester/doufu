@@ -9,19 +9,26 @@ import {
 } from '../../common/Vector3'
 
 export type RaycastResult = {
+  /** Block position in realm coordinates */
   block: Vector3
+  /** Intersection point on block face in realm coordinates */
   position: Vector3
-  /** May be [0, 0, 0] if the starting position is inside a block */
+  /**
+   * Corresponds to the face of the block that the ray hit. May be [0, 0, 0] if
+   * the starting position is inside a block.
+   */
   normal: Vector3
 }
 
 /**
- * @param d Should be normalized.
+ * @param p Starting point in realm coordinates (e.g. global coordinates for
+ * normal chunks, local coordinates for floating chunks).
+ * @param d Direction unit vector.
  * @param maxDistance Defaults to 64.
  * @link https://github.com/fenomas/fast-voxel-raycast/blob/master/index.js
  */
-export function * raycast<T> (
-  getVoxel: (v: Vector3) => T,
+export function * raycast (
+  getVoxel: (v: Vector3) => boolean,
   p: Vector3,
   d: Vector3,
   maxDistance = 64
