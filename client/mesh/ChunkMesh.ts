@@ -26,7 +26,39 @@ const cacheBounds = [
 ]
 
 export class ChunkMesh extends Chunk {
+  /**
+   * A map from neighbor ID to a section of the chunk.
+   *
+   * A chunk section is a set of blocks that share the same set of neighboring
+   * chunks. For example, each corner block is its own section that touches
+   * three neighboring chunks. You can kind of think of it like those AMC
+   * problems where they paint sides of a cube. There are four types of
+   * sections:
+   *
+   * - 8 corner/vertex sections, each with one block and 3 neighbors
+   * - 12 edge sections, each with `SIZE - 2` blocks and 2 neighbors.
+   * - 6 face sections, each with `(SIZE - 2)^2` blocks and 1 neighbor.
+   * - 1 middle section, with `(SIZE - 2)^3` blocks and no neighbors. This one
+   *   is special because it's the largest, has no "foreign" chunk neighbors,
+   *   and it's thick enough that some block updates within the section will not
+   *   require updating any neighboring sections.
+   *
+   * Regardless of size, all sections have 26 section neighbors, some of which
+   * (except for the middle section) may be in another chunk. Block updates care
+   * only about section neighbors, not chunk neighbors.
+   *
+   * Sections are (probably confusingly) identified by a neighbor vector
+   * relative to the middle section.
+   *
+   * This is to limit the number of faces that need to be regenerated if, say, a
+   * neighboring chunk updates its corner block. The algorithm for determining
+   * what sections to mark dirty is implemented in mesh/index.ts.
+   */
   cache: {
+    /**
+     * contains the bytes for voxel face vertex data to be concatenated together
+     * with the other sections
+     */
     faces: number[]
     dirty: boolean
   }[] = NEIGHBORS.map(() => ({ faces: [], dirty: true }))
@@ -64,7 +96,7 @@ export class ChunkMesh extends Chunk {
   }
 
   /**
-   * Assumes that at least one part of the chunk is dirty, i.e. a block has
+   * Assumes that at least one section of the chunk is dirty, i.e. a block has
    * changed.
    */
   generateMesh (): Uint8Array<ArrayBuffer> {
@@ -77,7 +109,7 @@ export class ChunkMesh extends Chunk {
         continue
       }
       entry.faces = []
-      // Skip the middle part if the chunk is entirely opaque.
+      // Skip the middle section if the chunk is entirely opaque.
       if (i === MIDDLE && this.#isEntirelyOpaque) {
         continue
       }
@@ -193,9 +225,9 @@ function getFaceVertex (face: number, index: number): Vector3 {
 
 /**
  * Maps chunk neighbor index to the corresponding cache indices of the neighbor
- * that would need to be marked dirty if the chunk changed.
+ * that would need to be marked dirty if the entire chunk changed.
  */
-export const neighborAffectedParts: number[][] = NEIGHBORS.map(() => [])
+export const sectionsAffectedByNeighborMap: number[][] = NEIGHBORS.map(() => [])
 for (const neighbor of NEIGHBORS) {
   const i = neighborIndex(neighbor)
   switch (sumComponents(map(neighbor, Math.abs))) {
@@ -208,15 +240,15 @@ for (const neighbor of NEIGHBORS) {
       for (const a of OFFSETS) {
         for (const b of OFFSETS) {
           if (neighbor.x) {
-            neighborAffectedParts[i].push(
+            sectionsAffectedByNeighborMap[i].push(
               neighborIndex({ x: -neighbor.x, y: a, z: b })
             )
           } else if (neighbor.y) {
-            neighborAffectedParts[i].push(
+            sectionsAffectedByNeighborMap[i].push(
               neighborIndex({ x: a, y: -neighbor.y, z: b })
             )
           } else {
-            neighborAffectedParts[i].push(
+            sectionsAffectedByNeighborMap[i].push(
               neighborIndex({ x: a, y: b, z: -neighbor.z })
             )
           }
@@ -226,14 +258,14 @@ for (const neighbor of NEIGHBORS) {
     // Edge
     case 2: {
       for (const a of OFFSETS) {
-        neighborAffectedParts[i].push(
+        sectionsAffectedByNeighborMap[i].push(
           neighborIndex(map(neighbor, n => -n || a))
         )
       }
     }
     // Vertex
     case 3: {
-      neighborAffectedParts[i].push(neighborIndex(scale(neighbor, -1)))
+      sectionsAffectedByNeighborMap[i].push(neighborIndex(scale(neighbor, -1)))
       break
     }
   }

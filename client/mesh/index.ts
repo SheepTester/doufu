@@ -1,8 +1,16 @@
-import { add, map, neighborIndex, NEIGHBORS, ZERO } from '../../common/Vector3'
+import {
+  add,
+  all,
+  map,
+  MIDDLE,
+  neighborIndex,
+  NEIGHBORS,
+  ZERO
+} from '../../common/Vector3'
 import { SIZE } from '../../common/world/Chunk'
 import { World } from '../../common/world/World'
 import { Connection } from '../net/Connection'
-import { ChunkMesh, neighborAffectedParts } from './ChunkMesh'
+import { ChunkMesh, sectionsAffectedByNeighborMap } from './ChunkMesh'
 import { MeshWorkerMessage, MeshWorkerRequest } from './message'
 
 const world = new World<ChunkMesh>({
@@ -57,7 +65,7 @@ const connection = new Connection<MeshWorkerRequest, MeshWorkerMessage>({
           const chunk = world.ensure(position)
           for (const [i, neighbor] of chunk.neighbors.entries()) {
             if (neighbor instanceof ChunkMesh) {
-              for (const j of neighborAffectedParts[i]) {
+              for (const j of sectionsAffectedByNeighborMap[i]) {
                 neighbor.cache[j].dirty = true
               }
               dirty.add(neighbor)
@@ -68,35 +76,65 @@ const connection = new Connection<MeshWorkerRequest, MeshWorkerMessage>({
         break
       }
       case 'block-update': {
+        const chunksWithBlockUpdates = new Set<ChunkMesh>()
         for (const { position, block, id } of message.blocks) {
           const { chunk, local } = world.setBlock(position, block, id)
           if (!chunk) {
-            break
+            continue
           }
-          chunk.handleDataUpdate()
-          // TODO: Where does it set the current chunk to be dirty?
-          const part = map(local, local =>
-            local < 1 ? -1 : local < SIZE - 1 ? 0 : 1
-          )
-          // Mark neighboring parts as dirty
-          for (const offset of NEIGHBORS) {
-            // rp = "raw part" because it could be -2 or 2
-            const rawPart = add(part, offset)
-            const neighbor =
-              chunk.neighbors[
-                neighborIndex(
-                  map(rawPart, rp => (rp === -2 ? -1 : rp === 2 ? 1 : 0))
-                )
-              ]
-            if (neighbor instanceof ChunkMesh) {
-              neighbor.cache[
-                neighborIndex(
-                  map(rawPart, rp => (rp === -2 ? 1 : rp === 2 ? -1 : rp))
-                )
-              ].dirty = true
-              dirty.add(neighbor)
+          chunksWithBlockUpdates.add(chunk)
+
+          // The goal of this part of the program is to decide which sections of
+          // which chunks should be marked dirty.
+
+          // TODO: the block position check could benefit other sections (except
+          // vertex ones) too
+          if (all(local, l => 1 < l && l < SIZE - 2)) {
+            // The block is both in the middle section and does not touch any
+            // other sections, so only the middle section is marked dirty.
+            chunk.cache[MIDDLE].dirty = true
+            dirty.add(chunk)
+            continue
+          }
+
+          /**
+           * This gets the neighbor vector of the chunk section that the block
+           * is in.
+           */
+          const section = map(local, l => (l < 1 ? -1 : l >= SIZE - 1 ? 1 : 0))
+          // Mark neighboring sections as dirty
+          for (const neighborOffset of NEIGHBORS) {
+            /**
+             * A pseudo-neighbor vector representing a neighboring section. It
+             * is not a true neighbor vector because some components may be
+             * +/-2, but this allows it to represent both the chunk that the
+             * section is in and the section offset within that chunk.
+             */
+            const neighborSectionRaw = add(section, neighborOffset)
+            /**
+             * The neighbor vector of the chunk that the neighboring section is
+             * in.
+             */
+            const neighborSectionChunk = map(neighborSectionRaw, c =>
+              c === -2 ? -1 : c === 2 ? 1 : 0
+            )
+            const neighborChunk =
+              chunk.neighbors[neighborIndex(neighborSectionChunk)]
+            if (neighborChunk instanceof ChunkMesh) {
+              /**
+               * The neighbor vector of the block's neighboring section within
+               * `neighborSectionChunk`.
+               */
+              const neighborSection = map(neighborSectionRaw, c =>
+                c === -2 ? 1 : c === 2 ? -1 : c
+              )
+              neighborChunk.cache[neighborIndex(neighborSection)].dirty = true
+              dirty.add(neighborChunk)
             }
           }
+        }
+        for (const chunk of chunksWithBlockUpdates) {
+          chunk.handleDataUpdate()
         }
         requestRemesh()
         break

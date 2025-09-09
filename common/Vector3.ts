@@ -163,8 +163,8 @@ export const MIDDLE = neighborIndex(ZERO)
 
 export const OFFSETS = [-1, 0, 1]
 /**
- * List of all vectors in a 3x3x3 cube around the zero vector. In other words,
- * the Cartesian product `{-1,0,1} times {-1,0,1} times {-1,0,1}`.
+ * List of all neighbor vectors—vectors in a 3x3x3 cube around the zero vector.
+ * In other words, the Cartesian product `{-1,0,1} × {-1,0,1} × {-1,0,1}`.
  */
 export const NEIGHBORS = OFFSETS.flatMap(x =>
   OFFSETS.flatMap(y => OFFSETS.map(z => ({ x, y, z })))
