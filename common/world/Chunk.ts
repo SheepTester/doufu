@@ -5,7 +5,7 @@ import {
   map,
   MIDDLE,
   neighborIndex,
-  neighbors,
+  NEIGHBORS,
   Vector3,
   ZERO
 } from '../Vector3'
@@ -18,7 +18,7 @@ export type LoneId = { id: number; transform?: Mat4 }
 export class Chunk {
   position: Vector3 | LoneId
   data: Uint8Array<ArrayBuffer>
-  neighbors: (Chunk | null)[] = neighbors.map(() => null)
+  neighbors: (Chunk | null)[] = NEIGHBORS.map(() => null)
 
   constructor (
     position: Vector3 | LoneId,

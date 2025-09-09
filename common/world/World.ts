@@ -6,7 +6,7 @@ import {
   Vector3,
   map,
   map2,
-  neighbors,
+  NEIGHBORS,
   add,
   neighborIndex,
   scale,
@@ -51,7 +51,7 @@ export class World<T extends Chunk> {
       return
     }
     this.#chunkMap[key] = chunk
-    for (const offset of neighbors) {
+    for (const offset of NEIGHBORS) {
       const neighbor = this.lookup(add(chunk.position, offset))
       if (!neighbor) {
         continue

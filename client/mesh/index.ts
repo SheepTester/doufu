@@ -1,4 +1,4 @@
-import { add, map, neighborIndex, neighbors, ZERO } from '../../common/Vector3'
+import { add, map, neighborIndex, NEIGHBORS, ZERO } from '../../common/Vector3'
 import { SIZE } from '../../common/world/Chunk'
 import { World } from '../../common/world/World'
 import { Connection } from '../net/Connection'
@@ -79,7 +79,7 @@ const connection = new Connection<MeshWorkerRequest, MeshWorkerMessage>({
             local < 1 ? -1 : local < SIZE - 1 ? 0 : 1
           )
           // Mark neighboring parts as dirty
-          for (const offset of neighbors) {
+          for (const offset of NEIGHBORS) {
             // rp = "raw part" because it could be -2 or 2
             const rawPart = add(part, offset)
             const neighbor =
