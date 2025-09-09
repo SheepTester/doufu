@@ -9,6 +9,7 @@ export type KeyInput = {
   sneak: boolean
   toggleCollisions: boolean
   toggleFlight: boolean
+  toggleChunkBorders: boolean
   mine: boolean
   place: boolean
   grapple: boolean
@@ -22,6 +23,7 @@ export const defaultKeys = (): KeyInput => ({
   jump: false,
   sneak: false,
   toggleCollisions: false,
+  toggleChunkBorders: false,
   toggleFlight: false,
   mine: false,
   place: false,

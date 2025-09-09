@@ -1,5 +1,12 @@
 import { mat4 } from 'wgpu-matrix'
-import { length, sub, transform, Vector3, ZERO } from '../../common/Vector3'
+import {
+  add,
+  length,
+  sub,
+  transform,
+  Vector3,
+  ZERO
+} from '../../common/Vector3'
 import { Chunk } from '../../common/world/Chunk'
 import { World } from '../../common/world/World'
 
@@ -8,6 +15,8 @@ export type EntityOptions = {
   collisionRadius: number
   /** In m. */
   height: number
+  /** In m from bottom. */
+  eyeHeight: number
   /**
    * In m. Length to shrink player by when considering other axes (to avoid
    * colliding with block boundaries due to rounding issues).
@@ -33,6 +42,10 @@ export class Entity<W extends World<Chunk> = World<Chunk>> {
     this.x = x
     this.y = y
     this.z = z
+  }
+
+  eye () {
+    return add(this, { y: this.options.eyeHeight })
   }
 
   /**

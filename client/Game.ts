@@ -10,10 +10,12 @@ import {
   equal,
   fromArray,
   length,
+  map,
   map2,
   toArray,
   transform,
-  Vector3
+  Vector3,
+  ZERO
 } from '../common/Vector3'
 import { SIZE } from '../common/world/Chunk'
 import { Player } from './control/Player'
@@ -96,6 +98,7 @@ export class Game {
     r: 'place',
     c: 'toggleCollisions',
     f: 'toggleFlight',
+    h: 'toggleChunkBorders',
     g: 'grapple'
   })
 
@@ -142,7 +145,8 @@ export class Game {
       reach: (this.#options.loadRange + 0.5) * SIZE,
 
       collisions: true,
-      flying: false
+      flying: false,
+      showChunkBorders: false
     })
 
     context.world = this.#world
@@ -285,6 +289,10 @@ export class Game {
   #lastRaycastResult: WorldRaycastResult | null = null
   #lookAtEdgeLines: Line[] = []
   #hadGrappleLine = false
+  #lastChunk: { chunk: Vector3 | undefined; lines: Line[] } = {
+    chunk: undefined,
+    lines: []
+  }
 
   #paint = () => {
     const start = performance.now()
@@ -308,7 +316,7 @@ export class Game {
       ? [
         {
           start: add(
-            add(this.#player, { y: this.#player.playerOptions.eyeHeight }),
+            add(this.#player, { y: this.#player.options.eyeHeight }),
             this.#player.camera.getForward()
           ),
           end: this.#player.grapple,
@@ -328,9 +336,8 @@ export class Game {
     const result = this.#player.raycast()
     if (result) {
       if (
-        !this.#lastRaycastResult ||
-        result.id !== this.#lastRaycastResult.id ||
-        !equal(result.block, this.#lastRaycastResult.block)
+        result.id !== this.#lastRaycastResult?.id ||
+        !equal(result?.block, this.#lastRaycastResult?.block)
       ) {
         const plusX = transform({ x: 1, y: 0, z: 0 }, result.transform, false)
         const plusY = transform({ x: 0, y: 1, z: 0 }, result.transform, false)
@@ -364,11 +371,46 @@ export class Game {
       this.#lookAtEdgeLines = []
       shouldSetLines = true
       this.#lastRaycastResult = null
-    } else if (grappleLine.length > 0) {
-      // Grapple line probably changes every frame
+    }
+    const chunk = this.#player.options.showChunkBorders
+      ? map(
+        add(this.#player, { y: this.#player.options.eyeHeight }),
+        n => Math.floor(n / SIZE) * SIZE
+      )
+      : undefined
+    if (!equal(this.#lastChunk.chunk, chunk)) {
+      this.#lastChunk = { chunk, lines: [] }
+      if (chunk) {
+        const triplets = [
+          ['x', 'y', 'z'],
+          ['z', 'x', 'y'],
+          ['y', 'z', 'x']
+        ] as const
+        for (let i = 0; i < SIZE; i += 4) {
+          for (const [v1, v2] of [
+            [i, 0],
+            [SIZE, i],
+            [SIZE - i, SIZE],
+            [0, SIZE - i]
+          ]) {
+            for (const [ca, cb, cc] of triplets) {
+              this.#lastChunk.lines.push({
+                start: add(chunk, { [ca]: v1, [cb]: v2, [cc]: 0 }),
+                end: add(chunk, { [ca]: v1, [cb]: v2, [cc]: SIZE }),
+                color: [0, 255, 255]
+              })
+            }
+          }
+        }
+      }
+      shouldSetLines = true
     }
     if (shouldSetLines) {
-      this.#context.setLines([...grappleLine, ...this.#lookAtEdgeLines])
+      this.#context.setLines([
+        ...grappleLine,
+        ...this.#lookAtEdgeLines,
+        ...this.#lastChunk.lines
+      ])
     }
 
     this.#context

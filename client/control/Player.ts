@@ -34,18 +34,17 @@ export type PlayerOptions = {
   /** In 1/s. F = kv. Applied while flying. */
   frictionCoeffFlying: number
   /** In m. */
-  eyeHeight: number
-  /** In m. */
   reach: number
 
   flying: boolean
+  showChunkBorders: boolean
 }
 
 export class Player extends Entity<ClientWorld> {
   camera = new Camera()
   input: InputProvider
   prevKeys: KeyInput = defaultKeys()
-  playerOptions: PlayerOptions
+  options: PlayerOptions & EntityOptions
   grapple: Vector3 | null = null
 
   constructor (
@@ -55,7 +54,7 @@ export class Player extends Entity<ClientWorld> {
   ) {
     super(world, options)
     this.input = input
-    this.playerOptions = options
+    this.options = options
   }
 
   doMovement (elapsed: number): void {
@@ -70,24 +69,24 @@ export class Player extends Entity<ClientWorld> {
     }
 
     const friction =
-      this.playerOptions.flying || !this.onGround
+      this.options.flying || !this.onGround
         ? scale(
           {
             x: this.velocity.x,
-            y: this.playerOptions.flying ? this.velocity.y : 0,
+            y: this.options.flying ? this.velocity.y : 0,
             z: this.velocity.z
           },
-          this.playerOptions.flying
-            ? this.playerOptions.frictionCoeffFlying
-            : this.playerOptions.frictionCoeffAir
+          this.options.flying
+            ? this.options.frictionCoeffFlying
+            : this.options.frictionCoeffAir
         )
         : scale(
           normalize({
             x: -this.velocity.x,
-            y: this.playerOptions.flying ? -this.velocity.y : 0,
+            y: this.options.flying ? -this.velocity.y : 0,
             z: -this.velocity.z
           }),
-          this.playerOptions.frictionGround
+          this.options.frictionGround
         )
     let acceleration = { x: 0, y: 0, z: 0 }
 
@@ -107,11 +106,11 @@ export class Player extends Entity<ClientWorld> {
     const moving = direction.x !== 0 || direction.z !== 0
     if (moving) {
       const factor =
-        (this.playerOptions.flying
-          ? this.playerOptions.moveAccelFlying
+        (this.options.flying
+          ? this.options.moveAccelFlying
           : this.onGround
-            ? this.playerOptions.moveVel
-            : this.playerOptions.moveAccelAir) /
+            ? this.options.moveVel
+            : this.options.moveAccelAir) /
         Math.max(Math.hypot(direction.x, direction.z), 1)
       // TODO: idk why yaw needs to be inverted
       const movementX =
@@ -124,7 +123,7 @@ export class Player extends Entity<ClientWorld> {
           Math.cos(-this.camera.yaw) * direction.z)
       // In Minecraft, it seems you change direction instantly when on the
       // ground
-      if (!this.playerOptions.flying && this.onGround) {
+      if (!this.options.flying && this.onGround) {
         this.velocity.x = movementX
         this.velocity.z = movementZ
       } else {
@@ -133,17 +132,17 @@ export class Player extends Entity<ClientWorld> {
       }
     }
 
-    if (this.playerOptions.flying) {
+    if (this.options.flying) {
       if (this.input.keys.jump) {
-        acceleration.y += this.playerOptions.moveAccelFlying
+        acceleration.y += this.options.moveAccelFlying
       }
       if (this.input.keys.sneak) {
-        acceleration.y -= this.playerOptions.moveAccelFlying
+        acceleration.y -= this.options.moveAccelFlying
       }
     } else {
-      acceleration.y = this.playerOptions.gravity
+      acceleration.y = this.options.gravity
       if (this.input.keys.jump && this.onGround) {
-        this.velocity.y = this.playerOptions.jumpVel
+        this.velocity.y = this.options.jumpVel
       }
     }
 
@@ -158,9 +157,9 @@ export class Player extends Entity<ClientWorld> {
 
   raycast (): WorldRaycastResult | null {
     return this.world.raycast(
-      add(this, { y: this.playerOptions.eyeHeight }),
+      this.eye(),
       this.camera.getForward(),
-      this.playerOptions.reach
+      this.options.reach
     )
   }
 
@@ -169,7 +168,13 @@ export class Player extends Entity<ClientWorld> {
       this.options.collisions = !this.options.collisions
     }
     if (this.input.keys.toggleFlight && !this.prevKeys.toggleFlight) {
-      this.playerOptions.flying = !this.playerOptions.flying
+      this.options.flying = !this.options.flying
+    }
+    if (
+      this.input.keys.toggleChunkBorders &&
+      !this.prevKeys.toggleChunkBorders
+    ) {
+      this.options.showChunkBorders = !this.options.showChunkBorders
     }
 
     const result = this.raycast()
@@ -212,7 +217,7 @@ export class Player extends Entity<ClientWorld> {
     return this.camera.transform(
       mat4.translation<Float32Array>([
         this.x,
-        this.y + this.playerOptions.eyeHeight,
+        this.y + this.options.eyeHeight,
         this.z
       ])
     )

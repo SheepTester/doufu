@@ -118,8 +118,18 @@ export function all (
   return test(x) && test(y) && test(z)
 }
 
-export function equal (a: Vector3, b: Vector3): boolean {
-  return a.x === b.x && a.y === b.y && a.z === b.z
+export function equal (
+  a: Vector3 | undefined,
+  b: Vector3 | undefined
+): boolean {
+  return (
+    (a === undefined && b === undefined) ||
+    (a !== undefined &&
+      b !== undefined &&
+      a.x === b.x &&
+      a.y === b.y &&
+      a.z === b.z)
+  )
 }
 
 export function transform (

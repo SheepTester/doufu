@@ -22,8 +22,21 @@ fn vertex_main(
 ) -> VertexOutput {
     let pv = perspective * camera;
     var start_projected = pv * vec4(start, 1.0);
-    start_projected /= start_projected.w;
     var end_projected = pv * vec4(end, 1.0);
+
+    if (start_projected.w <= 0.0 && end_projected.w <= 0.0) {
+        return VertexOutput(vec4(0.0), vec3(0.0));
+    }
+
+    let t = start_projected.w / (start_projected.w - end_projected.w);
+    if (start_projected.w <= 0.0) {
+        start_projected = mix(start_projected, end_projected, t + 0.0001);
+    }
+    if (end_projected.w <= 0.0) {
+        end_projected = mix(start_projected, end_projected, t - 0.0001);
+    }
+
+    start_projected /= start_projected.w;
     end_projected /= end_projected.w;
 
     // in CSS pixels
