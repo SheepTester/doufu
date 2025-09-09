@@ -152,12 +152,20 @@ export function sumComponents ({ x, y, z }: Vector3): number {
   return x + y + z
 }
 
+/**
+ * Returns index of neighbor vector in `neighbors`. Constant time, doesn't use
+ * `indexOf`.
+ */
 export function neighborIndex ({ x, y, z }: Vector3): number {
   return ((x + 1) * 3 + y + 1) * 3 + z + 1
 }
 export const MIDDLE = neighborIndex(ZERO)
 
 const offsets = [-1, 0, 1]
+/**
+ * List of all vectors in a 3x3x3 cube around the zero vector. In other words,
+ * the Cartesian product `{-1,0,1} times {-1,0,1} times {-1,0,1}`.
+ */
 export const neighbors = offsets.flatMap(x =>
   offsets.flatMap(y => offsets.map(z => ({ x, y, z })))
 )

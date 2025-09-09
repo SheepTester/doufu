@@ -1,6 +1,14 @@
 import { Mat4 } from 'wgpu-matrix'
 import { SerializedChunk } from '../message'
-import { all, map, MIDDLE, neighborIndex, Vector3, ZERO } from '../Vector3'
+import {
+  all,
+  map,
+  MIDDLE,
+  neighborIndex,
+  neighbors,
+  Vector3,
+  ZERO
+} from '../Vector3'
 import { Block } from './Block'
 
 export const SIZE = 32
@@ -10,7 +18,7 @@ export type LoneId = { id: number; transform?: Mat4 }
 export class Chunk {
   position: Vector3 | LoneId
   data: Uint8Array<ArrayBuffer>
-  neighbors: (Chunk | null)[] = Array.from({ length: 27 }, () => null)
+  neighbors: (Chunk | null)[] = neighbors.map(() => null)
 
   constructor (
     position: Vector3 | LoneId,

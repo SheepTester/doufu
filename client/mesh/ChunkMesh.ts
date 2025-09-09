@@ -28,7 +28,7 @@ export class ChunkMesh extends Chunk {
   cache: {
     faces: number[]
     dirty: boolean
-  }[] = Array.from({ length: 27 }, () => ({ faces: [], dirty: true }))
+  }[] = neighbors.map(() => ({ faces: [], dirty: true }))
 
   /**
    * Whether the chunk will be rendered like an entity and should be treated as
@@ -194,10 +194,7 @@ function getFaceVertex (face: number, index: number): Vector3 {
  * Maps chunk neighbor index to the corresponding cache indices of the neighbor
  * that would need to be marked dirty if the chunk changed.
  */
-export const neighborAffectedParts: number[][] = Array.from(
-  { length: 27 },
-  () => []
-)
+export const neighborAffectedParts: number[][] = neighbors.map(() => [])
 for (const neighbor of neighbors) {
   const i = neighborIndex(neighbor)
   switch (sumComponents(map(neighbor, Math.abs))) {
@@ -207,8 +204,8 @@ for (const neighbor of neighbors) {
     }
     // Face
     case 1: {
-      for (const a of [-1, 0, -1]) {
-        for (const b of [-1, 0, -1]) {
+      for (const a of [-1, 0, 1]) {
+        for (const b of [-1, 0, 1]) {
           if (neighbor.x) {
             neighborAffectedParts[i].push(
               neighborIndex({ x: -neighbor.x, y: a, z: b })
@@ -227,7 +224,7 @@ for (const neighbor of neighbors) {
     }
     // Edge
     case 2: {
-      for (const a of [-1, 0, -1]) {
+      for (const a of [-1, 0, 1]) {
         neighborAffectedParts[i].push(
           neighborIndex(map(neighbor, n => -n || a))
         )

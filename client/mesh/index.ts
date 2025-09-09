@@ -51,6 +51,10 @@ const connection = new Connection<MeshWorkerRequest, MeshWorkerMessage>({
           chunk.data = data
           chunk.handleDataUpdate()
           chunk.markAllDirty()
+        }
+        // Iterate neighbors after all new chunks have their neighbors set
+        for (const { position } of message.chunks) {
+          const chunk = world.ensure(position)
           for (const [i, neighbor] of chunk.neighbors.entries()) {
             if (neighbor instanceof ChunkMesh) {
               for (const j of neighborAffectedParts[i]) {

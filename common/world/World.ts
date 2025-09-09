@@ -75,10 +75,7 @@ export class World<T extends Chunk> {
    * create a new chunk and register it.
    */
   ensure (position: Vector3 | LoneId): T {
-    const chunk =
-      'id' in position
-        ? this.floating[position.id]
-        : this.#chunkMap[toKey(position)]
+    const chunk = this.lookup(position)
     if (chunk) {
       return chunk
     } else {
