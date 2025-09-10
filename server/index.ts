@@ -70,8 +70,12 @@ export class Server {
     for (let x = 0; x < SIZE; x++) {
       for (let y = 0; y < SIZE; y++) {
         for (let z = 0; z < SIZE; z++) {
-          if (Math.hypot(x - SIZE / 2, y - SIZE / 2, z - SIZE / 2) < 15) {
-            this.#world.floating[0].set({ x, y, z }, Block.STONE)
+          const radius = Math.hypot(x - SIZE / 2, y - SIZE / 2, z - SIZE / 2)
+          if (radius < 15) {
+            this.#world.floating[0].set(
+              { x, y, z },
+              radius < 10 ? Block.STONE : Block.GLASS
+            )
           }
         }
       }

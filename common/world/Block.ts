@@ -12,7 +12,8 @@ export const enum Block {
   DIRT = 4,
   GRASS = 5,
   LOG = 6,
-  LEAVES = 7
+  LEAVES = 7,
+  WATER = 8
 }
 
 const textures: Partial<Record<Block, number>> = {
@@ -22,12 +23,15 @@ const textures: Partial<Record<Block, number>> = {
   [Block.DIRT]: 3,
   [Block.GRASS]: 4,
   [Block.LOG]: 6,
-  [Block.LEAVES]: 8
+  [Block.LEAVES]: 8,
+  [Block.WATER]: 8 // TEMP
 }
+
+const transparent = new Set([Block.AIR, Block.GLASS, Block.LEAVES, Block.WATER])
 
 /** Whether the block can cull faces */
 export function isOpaque (block: Block | null): boolean {
-  return block !== Block.AIR && block !== Block.GLASS && block !== Block.LEAVES
+  return block === null || !transparent.has(block)
 }
 
 /**
@@ -38,9 +42,11 @@ export function showAdjacentFaces (block: Block | null): boolean {
   return block === Block.LEAVES
 }
 
-/** Whether entities can collide with the block */
+const ghosts = new Set([Block.AIR, Block.WATER])
+
+/** Whether entities/the block selection raycast can collide with the block */
 export function isSolid (block: Block | null): boolean {
-  return block !== Block.AIR
+  return block === null || !ghosts.has(block)
 }
 
 export function getTexture (block: Block | null, face: Face): number | null {

@@ -37,8 +37,8 @@ const workerContext = await esbuild.context({
       ? 'static/client/mesh'
       : 'dist/client/mesh'
     : serve
-    ? 'static/'
-    : 'dist/',
+      ? 'static/'
+      : 'dist/',
   format: 'iife',
   bundle: true,
   sourcemap: 'linked',
@@ -56,11 +56,11 @@ const serverContext = await esbuild.context({
   define: { IS_BROWSER: 'false' },
   plugins: serve
     ? [
-        esbuildServe({
-          main: 'dist/server.cjs',
-          env: { ESBUILD_SILENT: 'true' }
-        })
-      ]
+      esbuildServe({
+        main: 'dist/server.cjs',
+        env: { ESBUILD_SILENT: 'true' }
+      })
+    ]
     : []
 })
 
@@ -70,7 +70,7 @@ const serverContext = await esbuild.context({
  * @param {boolean} check404
  * @returns {Promise<http.IncomingMessage>}
  */
-function request ({ host, port }, req, check404) {
+function request ({ hosts: [host], port }, req, check404) {
   return new Promise((resolve, reject) => {
     const proxyReq = http.request(
       {

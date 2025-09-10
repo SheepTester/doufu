@@ -71,7 +71,7 @@ function generateChunk (position: Vector3): Chunk {
             relativeElevation < relativeSeaLevel ? Block.DIRT : Block.GRASS
           )
         } else if (y <= relativeSeaLevel) {
-          chunk.set({ x, y, z }, Block.GLASS)
+          chunk.set({ x, y, z }, Block.WATER)
         } else {
           const scale = 100
           const islandness =
