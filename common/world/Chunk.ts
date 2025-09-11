@@ -1,15 +1,22 @@
 import { Mat4 } from 'wgpu-matrix'
-import { SerializedChunk } from '../message'
+import { SerializedBlock, SerializedChunk } from '../message'
 import {
+  add,
   all,
   map,
   MIDDLE,
   neighborIndex,
   NEIGHBORS,
+  scale,
   Vector3,
   ZERO
 } from '../Vector3'
 import { Block } from './Block'
+import {
+  ChunkFeatureChange,
+  priorityMap,
+  priorityOrder
+} from '../../server/generate/priority'
 
 export const SIZE = 32
 
@@ -74,6 +81,22 @@ export class Chunk {
   /** Make the chunk consist entirely of `block` */
   fill (block: Block): void {
     this.data.fill(block)
+  }
+
+  apply (changes: ChunkFeatureChange[], changed?: SerializedBlock[]): void {
+    for (const { position, priority } of changes) {
+      const block = this.get(position)
+      if ((priorityMap[block] ?? 0) < priority) {
+        const newBlock = priorityOrder[priority]
+        this.set(position, newBlock)
+        if (changed && 'x' in this.position) {
+          changed.push({
+            position: add(scale(this.position, SIZE), position),
+            block: newBlock
+          })
+        }
+      }
+    }
   }
 
   serialize (): SerializedChunk {

@@ -48,6 +48,29 @@ export class Server {
           chunk.broadcastUpdate()
           break
         }
+        case 'retcon-blocks': {
+          const subscribers = new Map<Connection, SerializedBlock[]>()
+          for (const { position, changes } of message.chunks) {
+            const chunk = this.#world.ensure(position)
+            if (chunk.generationState.type !== 'generated') {
+              throw new Error("Chunk isn't generated.")
+            }
+            const changed: SerializedBlock[] = []
+            chunk.apply(changes, changed)
+            for (const subscriber of chunk.subscribers) {
+              let updates = subscribers.get(subscriber)
+              if (!updates) {
+                updates = []
+                subscribers.set(subscriber, updates)
+              }
+              updates.push(...changed)
+            }
+          }
+          for (const [subscriber, blocks] of subscribers) {
+            subscriber.send({ type: 'block-update', blocks })
+          }
+          break
+        }
         default: {
           console.error('Unknown world generator response type', message)
         }
@@ -163,6 +186,8 @@ export class Server {
             chunk.generationState.type !== 'generated' &&
             'x' in chunk.position
           ) {
+            // TODO: why are we letting players set blocks in ungenerated
+            // chunks?
             chunk.generationState.queue.push({ position: local, block })
             if (chunk.generationState.type === 'ungenerated') {
               chunk.generationState.type = 'generating'
