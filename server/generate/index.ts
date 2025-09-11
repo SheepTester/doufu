@@ -137,7 +137,7 @@ function generateChunk (position: Vector3): {
             getIslandness(blockPos) * Math.min(1, (y - relativeElevation) / 50)
           if (islandness > 1) {
             const islandnessAbove =
-              getIslandness(add(blockPos, { y: islandScale })) *
+              getIslandness(add(blockPos, { y: 1 / islandScale })) *
               Math.min(1, (y + 1 - relativeElevation) / 50)
             chunk.set(
               { x, y, z },
