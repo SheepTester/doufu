@@ -13,6 +13,16 @@ const square_vertices = array(
     vec2(0.5, 0.5), vec2(0.5, -0.5), vec2(-0.5, -0.5),
 );
 
+// This is from Minecraft oop
+// https://mcasset.cloud/1.21.5/assets/minecraft/shaders/core/rendertype_lines.vsh
+const view_scale_factor = 1.0 - 1.0 / 256.0;
+const view_scale = mat4x4(
+    view_scale_factor, 0.0, 0.0, 0.0,
+    0.0, view_scale_factor, 0.0, 0.0,
+    0.0, 0.0, view_scale_factor, 0.0,
+    0.0, 0.0, 0.0, 1.0,
+);
+
 @vertex
 fn vertex_main(
     @builtin(vertex_index) vertex_index: u32,
@@ -20,7 +30,7 @@ fn vertex_main(
     @location(1) end: vec3<f32>,
     @location(2) color: u32,
 ) -> VertexOutput {
-    let pv = perspective * camera;
+    let pv = perspective * view_scale * camera;
     var start_projected = pv * vec4(start, 1.0);
     var end_projected = pv * vec4(end, 1.0);
 
