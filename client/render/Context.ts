@@ -1,4 +1,4 @@
-import { Mat4, mat4, Vec3 } from 'wgpu-matrix'
+import { Mat4, mat4 } from 'wgpu-matrix'
 import atlasPath from '../asset/atlas.png'
 import { ClientWorld } from './ClientWorld'
 import { Group } from './Group'
@@ -8,7 +8,6 @@ import { Model } from './Model'
 import modelCode from './model-cube.wgsl'
 import postprocessCode from './postprocess.wgsl'
 import { Uniform } from './Uniform'
-import voxelOutlineCode from './voxel-outline.wgsl'
 import voxelCode from './voxel.wgsl'
 import { Vector3 } from '../../common/Vector3'
 
@@ -207,7 +206,7 @@ export class Context extends ContextBase {
       primitive: { cullMode: 'back' },
       depthStencil: {
         depthWriteEnabled: true,
-        depthCompare: 'less',
+        depthCompare: 'greater',
         format: 'depth24plus'
       }
     }),
@@ -255,7 +254,7 @@ export class Context extends ContextBase {
       // omit fragment to not set color
       depthStencil: {
         depthWriteEnabled: true,
-        depthCompare: 'less',
+        depthCompare: 'greater',
         format: 'depth24plus'
       }
     }),
@@ -274,7 +273,7 @@ export class Context extends ContextBase {
       },
       depthStencil: {
         depthWriteEnabled: false,
-        depthCompare: 'less-equal',
+        depthCompare: 'greater-equal',
         format: 'depth24plus'
       }
     }),
@@ -309,7 +308,7 @@ export class Context extends ContextBase {
       },
       depthStencil: {
         depthWriteEnabled: true,
-        depthCompare: 'less',
+        depthCompare: 'greater',
         format: 'depth24plus'
       }
     }),
@@ -376,7 +375,7 @@ export class Context extends ContextBase {
           colorAttachments: [],
           depthStencilAttachment: {
             view: depthView,
-            depthClearValue: 1,
+            depthClearValue: 0,
             depthLoadOp: 'clear',
             depthStoreOp: 'store'
           },
@@ -405,7 +404,7 @@ export class Context extends ContextBase {
         ],
         depthStencilAttachment: {
           view: depthView,
-          depthClearValue: 1,
+          depthClearValue: 0,
           depthLoadOp: this.#lines ? 'load' : 'clear',
           depthStoreOp: 'store'
         },
@@ -480,7 +479,12 @@ export class Context extends ContextBase {
   /** width and height are in screen pixels (i.e. CSS pixels * DPR) */
   resize (width: number, height: number, dpr: number): void {
     this.#perspective.data(
-      new Float32Array(mat4.perspective(Math.PI / 2, width / height, 0.1, 1000))
+      new Float32Array(
+        mat4.multiply(
+          depthRangeRemapMatrix,
+          mat4.perspective(Math.PI / 2, width / height, 0.1, Infinity)
+        )
+      )
     )
     this.#canvasSize.data(new Float32Array([width / dpr, height / dpr]))
 
@@ -670,3 +674,8 @@ export async function loadTexture (
   const sampler = device.createSampler()
   return { texture, sampler, width: source.width, height: source.height }
 }
+
+// https://webgpu.github.io/webgpu-samples/?sample=reversedZ#main.ts
+const depthRangeRemapMatrix = mat4.identity()
+depthRangeRemapMatrix[10] = -1
+depthRangeRemapMatrix[14] = 1
