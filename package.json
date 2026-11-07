@@ -8,6 +8,7 @@
   },
   "devDependencies": {
     "@es-exec/esbuild-plugin-serve": "^0.0.5",
+    "@sheeptester/prettier": "^3.9.0",
     "@types/express": "^5.0.3",
     "@types/node": "^24.3.1",
     "@types/ws": "^8.18.1",

@@ -58,9 +58,8 @@ export function submitSample (label: Label, time: bigint | number): void {
   const stats = compute(measurement.samples)
   for (const [i, fps] of measurement.perSecond.slice(-SECONDS).entries()) {
     measurement.fps.children[i].textContent = String(fps)
-    ;(
-      measurement.fps.children[i] as HTMLElement
-    ).style.backgroundColor = `hsl(${fps * 2}, 100%, 50%)`
+    ;(measurement.fps.children[i] as HTMLElement).style.backgroundColor =
+      `hsl(${fps * 2}, 100%, 50%)`
   }
   const range = stats.max - stats.min
   if (range > 0) {
@@ -104,27 +103,27 @@ function compute (samples: bigint[]): Stats {
     median:
       sorted.length % 2 === 0
         ? Number(
-            sorted.length < 2
-              ? 0
-              : sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]
-          ) / 2
+          sorted.length < 2
+            ? 0
+            : sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]
+        ) / 2
         : Number(sorted[(sorted.length - 1) / 2]),
     lowerQuartile:
       sorted.length % 4 < 4
         ? Number(
-            quartileIndex > 0
-              ? sorted[quartileIndex - 1] + sorted[quartileIndex]
-              : 0
-          ) / 2
+          quartileIndex > 0
+            ? sorted[quartileIndex - 1] + sorted[quartileIndex]
+            : 0
+        ) / 2
         : Number(sorted[quartileIndex]),
     upperQuartile:
       sorted.length % 4 < 4
         ? Number(
-            quartileIndex > 0
-              ? sorted[sorted.length - quartileIndex] +
-                  sorted[sorted.length - 1 - quartileIndex]
-              : 0
-          ) / 2
+          quartileIndex > 0
+            ? sorted[sorted.length - quartileIndex] +
+              sorted[sorted.length - 1 - quartileIndex]
+            : 0
+        ) / 2
         : Number(sorted[sorted.length - 1 - quartileIndex]),
     average
   }

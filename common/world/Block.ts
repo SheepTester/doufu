@@ -60,5 +60,5 @@ export function getTexture (block: Block | null, face: Face): number | null {
   if (block === Block.LOG && (face === Face.TOP || face === Face.BOTTOM)) {
     return 7
   }
-  return block !== null ? textures[block] ?? null : null
+  return block !== null ? (textures[block] ?? null) : null
 }
