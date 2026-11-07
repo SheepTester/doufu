@@ -13,9 +13,7 @@ type ConnectionState =
 export type ConnectionOptions<ReceiveType, SendType> = {
   onMessage: (message: ReceiveType) => void
   /** Encode a message for WebSocket connections */
-  encode?: (
-    message: SendType
-  ) => string | ArrayBufferLike | Blob | ArrayBufferView
+  encode?: (message: SendType) => string | Blob | BufferSource
   /** Decode a message from a WebSocket connection */
   decode?: (message: ArrayBuffer) => ReceiveType
 }
@@ -94,12 +92,12 @@ export class Connection<ReceiveType, SendType = never> {
         worker = parentPort
       }
     }
-    // TypeScript hack; for some reason these cases can't merge
     if ('on' in worker) {
       worker.on('message', data => {
         this.options.onMessage(data)
       })
     } else if (worker instanceof Worker) {
+      // TypeScript hack; for some reason these cases can't merge
       worker.addEventListener('message', e => {
         this.options.onMessage(e.data)
       })

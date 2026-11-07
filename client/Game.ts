@@ -1,4 +1,4 @@
-import { mat4, Mat4, vec3 } from 'wgpu-matrix'
+import { mat4, Mat4 } from 'wgpu-matrix'
 import {
   ClientMessage,
   decodeServer,
@@ -8,14 +8,12 @@ import {
 import {
   add,
   equal,
-  fromArray,
   length,
   map,
   map2,
   toArray,
   transform,
-  Vector3,
-  ZERO
+  Vector3
 } from '../common/Vector3'
 import { SIZE } from '../common/world/Chunk'
 import { Player } from './control/Player'

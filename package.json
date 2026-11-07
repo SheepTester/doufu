@@ -9,17 +9,20 @@
   "devDependencies": {
     "@es-exec/esbuild-plugin-serve": "^0.0.5",
     "@sheeptester/prettier": "^3.9.0",
-    "@types/express": "^5.0.3",
-    "@types/node": "^24.3.1",
-    "@types/ws": "^8.18.1",
-    "@webgpu/types": "^0.1.64",
-    "esbuild": "^0.25.9",
-    "typescript": "^5.9.2"
+    "@types/express": "^5.0.6",
+    "@types/node": "^24.19.2",
+    "@types/web": "^0.0.361",
+    "@types/ws": "^8.18.2",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2"
   },
   "dependencies": {
     "alea": "^1.0.1",
-    "express": "^5.1.0",
+    "express": "^5.3.0",
     "simplex-noise": "^4.0.3",
-    "wgpu-matrix": "^3.4.0"
+    "wgpu-matrix": "^3.4.2"
+  },
+  "allowScripts": {
+    "esbuild": true
   }
 }

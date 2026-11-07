@@ -1,6 +1,6 @@
 export function merge (
   buffers: (ArrayBufferView & ArrayLike<number>)[]
-): Uint8Array {
+): Uint8Array<ArrayBuffer> {
   const merged = new Uint8Array(
     buffers.reduce((cum, curr) => cum + curr.byteLength, 0)
   )

@@ -35,7 +35,7 @@ export type SerializedEntity = {
 
 export function encode (
   message: ServerMessage | ClientMessage
-): ArrayBufferView {
+): ArrayBufferView<ArrayBuffer> {
   switch (message.type) {
     case 'ping':
     case 'pong': {

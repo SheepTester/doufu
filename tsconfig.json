@@ -7,6 +7,9 @@
     "forceConsistentCasingInFileNames": true,
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
-    "types": ["@webgpu/types"]
+    "lib": ["ESNext"],
+    "types": ["@types/web"],
+    "noEmit": true,
+    "noUncheckedSideEffectImports": false
   }
 }
