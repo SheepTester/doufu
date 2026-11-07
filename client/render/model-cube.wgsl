@@ -62,25 +62,64 @@ fn vertex_main(
     let face = index / 6;
     let vertex = get_cube_vertex(index % 6, face);
 
-    const X = vec3(1.0, 0.0, 0.0);
-    const Y = vec3(0.0, 1.0, 0.0);
-    const Z = vec3(0.0, 0.0, 1.0);
     // mat2x3 is 3 rows by 2 columns
     const all_face_origins = array(
-        transpose(mat2x3(Z + X + Z, Z)), // BACK
-        transpose(mat2x3(Z, Z)), // FRONT
-        transpose(mat2x3(Z + X, Z)), // LEFT
-        transpose(mat2x3(vec3(), Z)), // RIGHT
-        transpose(mat2x3(Z + X, vec3())), // BOTTOM
-        transpose(mat2x3(Z, vec3())), // TOP
+        // BACK
+        mat3x2(
+            vec2(1.0, 0.0),
+            vec2(0.0, 0.0),
+            vec2(2.0, 1.0),
+        ),
+        // FRONT
+        mat3x2(
+            vec2(0.0, 0.0),
+            vec2(0.0, 0.0),
+            vec2(1.0, 1.0),
+        ),
+        // LEFT
+        mat3x2(
+            vec2(1.0, 0.0),
+            vec2(0.0, 0.0),
+            vec2(1.0, 1.0),
+        ),
+        // RIGHT
+        mat3x2(
+            vec2(0.0, 0.0),
+            vec2(0.0, 0.0),
+            vec2(0.0, 1.0),
+        ),
+        // BOTTOM
+        mat3x2(
+            vec2(1.0, 0.0),
+            vec2(0.0, 0.0),
+            vec2(1.0, 0.0),
+        ),
+        // TOP
+        mat3x2(
+            vec2(0.0, 0.0),
+            vec2(0.0, 0.0),
+            vec2(1.0, 0.0),
+        ),
     );
     const all_face_dimensions = array(
         // back/front are x by y
-        transpose(mat2x3(X, Y)),
+        mat3x2(
+            vec2(1.0, 0.0),
+            vec2(0.0, 1.0),
+            vec2(0.0, 0.0),
+        ),
         // left/right are z by y
-        transpose(mat2x3(Z, Y)),
+        mat3x2(
+            vec2(0.0, 0.0),
+            vec2(0.0, 1.0),
+            vec2(1.0, 0.0),
+        ),
         // bottom/top are x by z
-        transpose(mat2x3(X, Z)),
+        mat3x2(
+            vec2(1.0, 0.0),
+            vec2(0.0, 0.0),
+            vec2(0.0, 1.0),
+        ),
     );
     let face_origin = all_face_origins[face] * cube_size;
     let face_dimensions = all_face_dimensions[face / 2] * cube_size;
