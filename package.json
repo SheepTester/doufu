@@ -13,7 +13,6 @@
     "@types/ws": "^8.18.1",
     "@webgpu/types": "^0.1.64",
     "esbuild": "^0.25.9",
-    "prettierx": "^0.19.0",
     "typescript": "^5.9.2"
   },
   "dependencies": {

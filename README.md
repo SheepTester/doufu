@@ -8,17 +8,17 @@ Based on [Kaaba](https://sheeptester.github.io/words-go-here/misc/kaaba/).
 
 ```shell
 # Install dependencies
-$ yarn
+$ npm install
 
 # Builds to dist/
-$ yarn build
+$ npm run build
 
 # Start development server
-$ yarn dev
+$ npm run dev
 http://localhost:3000/
 
 # Also builds to dist/
-$ yarn build server
+$ npm run build server
 
 # Starts WebSocket server
 $ node dist/server.cjs
